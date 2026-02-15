@@ -1,6 +1,5 @@
 package com.finstream.infrastructure.adapters.messaging;
 
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.finstream.domain.model.Amount;
 import com.finstream.domain.model.Transaction;
@@ -14,7 +13,6 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Currency;
 import java.util.UUID;
@@ -40,18 +38,15 @@ public class TransactionKafkaConsumer {
 
         RequestContext.runWithContext(traceId, "kafka-consumer", "system", () -> {
             try {
-                JsonNode node = objectMapper.readTree(payload);
+                TransactionReceivedEvent event = objectMapper.readValue(payload, TransactionReceivedEvent.class);
 
                 Transaction transaction = new Transaction(
-                        TransactionId.from(node.get("id").asText()),
-                        new Amount(
-                                new BigDecimal(node.get("amount").asText()),
-                                Currency.getInstance(node.get("currency").asText())
-                        ),
-                        new AccountId(node.get("fromAccount").asText()),
-                        new AccountId(node.get("toAccount").asText()),
-                        node.has("description") ? node.get("description").asText() : null,
-                        Instant.parse(node.get("occurredAt").asText())
+                        TransactionId.from(event.id()),
+                        new Amount(event.amount(), Currency.getInstance(event.currency())),
+                        new AccountId(event.fromAccount()),
+                        new AccountId(event.toAccount()),
+                        event.description(),
+                        Instant.parse(event.occurredAt())
                 );
 
                 repository.save(transaction);
