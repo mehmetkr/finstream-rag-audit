@@ -39,6 +39,9 @@ public class ArchitectureTest {
                     .should().dependOnClassesThat()
                     .resideInAPackage("..infrastructure..");
 
+    // Whitelist rationale: web adapters legitimately need Spring Web, validation, stereotype
+    // annotations, Jakarta Servlet (for filters), SLF4J logging, and Spring Core (for @Order).
+    // Review this list when adding new infrastructure classes to the web package.
     @ArchTest
     static final ArchRule web_adapters_should_only_depend_on_application_and_domain =
             classes()

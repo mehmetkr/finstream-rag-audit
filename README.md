@@ -2,6 +2,7 @@
 
 > Real-time financial transaction fraud detection — high-throughput event processing with an architecture designed for AI-powered (RAG/LLM) audit analysis.
 
+![CI](https://github.com/mehmetkr/finstream-rag-audit/actions/workflows/ci.yml/badge.svg)
 ![Java](https://img.shields.io/badge/Java-25-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)
 ![Kafka](https://img.shields.io/badge/Kafka-Event--Driven-blue)
@@ -60,55 +61,21 @@ Hexagonal (Ports & Adapters) architecture with an event-driven core. Domain logi
                               └────────────────────────────
 ```
 
-### Target Architecture (Full Vision)
-
-```
-  Client ──► API Gateway (JWT, Rate Limiting, PII Redaction)
-                  │
-                  ▼
-          Transaction Ingestion ──► Kafka ──► Fraud Evaluation Service
-                                                │
-                                    ┌───────────┼───────────┐
-                                    ▼           ▼           ▼
-                              Rule Engine   RAG Search   User History
-                              (<5ms gate)   (pgvector)   (Postgres)
-                                    │           │           │
-                                    └───────────┼───────────┘
-                                                ▼
-                                    LLM Decision (LangChain4j)
-                                    APPROVE | FLAG | BLOCK
-                                                │
-                              ┌─────────────────┼─────────────────┐
-                              ▼                 ▼                 ▼
-                          PostgreSQL      Audit Log (Kafka)   Alerts
-                          (Outbox + CDC)
-```
-
 ---
 
-## Current Status
-
-### ✅ Phase 1: Core Event-Driven Pipeline — Complete
+## Current Status — Phase 1 Complete
 
 The foundational high-throughput transaction ingestion and processing system, fully tested and working end-to-end.
-
-**What's built:**
 
 - **REST API** — Transaction submission endpoint with Bean Validation
 - **Event-driven pipeline** — Kafka producer/consumer for async processing
 - **PostgreSQL persistence** — Flyway-managed schema, JPA repositories
-- **Hexagonal architecture** — Clean separation of domain, application, and infrastructure layers
-- **Comprehensive test suite** — 33 tests covering architecture, integration, property-based, and unit tests
+- **Hexagonal architecture** — Clean separation enforced by ArchUnit
+- **33 tests** — Architecture, integration (Testcontainers), property-based (jqwik), unit
 - **Virtual Threads** — Enabled platform-wide for lightweight concurrency
 - **Scoped Values** — Request context propagation without ThreadLocal
 
-### ➡️ Phase 2: AI-Powered Fraud Analysis
-
-LangChain4j RAG with pgvector, two-phase fraud evaluation (fast rule gate → CompletableFuture scatter-gather), Transactional Outbox with Debezium CDC, PII redaction, Resilience4j fallback.
-
-### ➡️ Phase 3: Production Hardening
-
-OAuth 2.0 / Keycloak, OpenTelemetry tracing, Grafana dashboards, JMH benchmarks.
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for Phase 2 (RAG/LLM fraud analysis) and Phase 3 (production hardening) plans.
 
 ---
 
@@ -295,7 +262,7 @@ Key architectural decisions are documented in [`docs/adr/`](docs/adr/):
 
 - **[ADR-0001](docs/adr/0001-hexagonal-architecture.md):** Hexagonal architecture — domain isolation, framework-independent testability
 - **[ADR-0002](docs/adr/0002-completablefuture-virtual-threads.md):** CompletableFuture + Virtual Threads over StructuredTaskScope — production-stable APIs, two-phase gating
-- **ADR-0003 (planned):** Use pgvector over Pinecone for vector storage
+- **[ADR-0003](docs/adr/0003-pgvector-over-pinecone.md):** pgvector over Pinecone for vector storage — ACID co-location, no SaaS dependency
 - **ADR-0004 (planned):** Irreversible PII redaction before LLM processing
 - **ADR-0005 (planned):** Transactional Outbox with Debezium CDC
 
