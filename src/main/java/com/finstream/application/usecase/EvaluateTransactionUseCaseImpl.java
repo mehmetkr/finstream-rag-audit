@@ -1,12 +1,17 @@
 package com.finstream.application.usecase;
 
+import com.finstream.domain.model.RequestContext;
 import com.finstream.domain.model.Transaction;
 import com.finstream.domain.ports.inbound.EvaluateTransactionUseCase;
 import com.finstream.domain.ports.outbound.EventPublisherPort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EvaluateTransactionUseCaseImpl implements EvaluateTransactionUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(EvaluateTransactionUseCaseImpl.class);
 
     private final EventPublisherPort eventPublisher;
 
@@ -16,6 +21,9 @@ public class EvaluateTransactionUseCaseImpl implements EvaluateTransactionUseCas
 
     @Override
     public void submit(Transaction transaction) {
+        String traceId = RequestContext.TRACE_ID.isBound() ? RequestContext.TRACE_ID.get() : "no-trace";
+        log.info("[{}] Evaluating transaction: {}", traceId, transaction.id().value());
+
         eventPublisher.publishTransactionReceived(transaction);
     }
 }

@@ -102,20 +102,13 @@ The foundational high-throughput transaction ingestion and processing system, fu
 - **Virtual Threads** — Enabled platform-wide for lightweight concurrency
 - **Scoped Values** — Request context propagation without ThreadLocal
 
-### ➡️ Phase 2: AI-Powered Fraud Analysis — Planned
+### ➡️ Phase 2: AI-Powered Fraud Analysis
 
-- LangChain4j RAG integration with pgvector similarity search
-- Two-phase fraud evaluation: fast rule gate → parallel scatter-gather (CompletableFuture + Virtual Threads)
-- Transactional Outbox pattern with Debezium CDC
-- PII redaction before LLM processing
-- Resilience4j circuit breaker with rule-based fallback
+LangChain4j RAG with pgvector, two-phase fraud evaluation (fast rule gate → CompletableFuture scatter-gather), Transactional Outbox with Debezium CDC, PII redaction, Resilience4j fallback.
 
-### ➡️ Phase 3: Production Hardening — Planned
+### ➡️ Phase 3: Production Hardening
 
-- OAuth 2.0 / Keycloak security
-- OpenTelemetry distributed tracing
-- Grafana dashboards
-- Performance benchmarks (JMH)
+OAuth 2.0 / Keycloak, OpenTelemetry tracing, Grafana dashboards, JMH benchmarks.
 
 ---
 
@@ -298,13 +291,13 @@ src/
 
 ## Architecture Decision Records
 
-Key architectural decisions are documented in `docs/adr/` (planned):
+Key architectural decisions are documented in [`docs/adr/`](docs/adr/):
 
-- **ADR-0001:** Use pgvector over Pinecone for vector storage — co-located with transactional data, ACID-compliant, no SaaS dependency
-- **ADR-0002:** Hexagonal architecture — domain isolation, framework-independent testability
-- **ADR-0003:** CompletableFuture + Virtual Threads over StructuredTaskScope — production-stable APIs, two-phase gating for fraud checks
-- **ADR-0004:** Irreversible PII redaction before LLM processing — zero-trust, no token vault
-- **ADR-0005:** Transactional Outbox with Debezium CDC — eliminates dual-write inconsistency
+- **[ADR-0001](docs/adr/0001-hexagonal-architecture.md):** Hexagonal architecture — domain isolation, framework-independent testability
+- **[ADR-0002](docs/adr/0002-completablefuture-virtual-threads.md):** CompletableFuture + Virtual Threads over StructuredTaskScope — production-stable APIs, two-phase gating
+- **ADR-0003 (planned):** Use pgvector over Pinecone for vector storage
+- **ADR-0004 (planned):** Irreversible PII redaction before LLM processing
+- **ADR-0005 (planned):** Transactional Outbox with Debezium CDC
 
 ---
 
