@@ -1,6 +1,6 @@
 package com.finstream.infrastructure.adapters.web;
 
-import com.finstream.application.usecase.EvaluateTransactionUseCaseImpl;
+import com.finstream.domain.ports.inbound.EvaluateTransactionUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -9,6 +9,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TransactionController.class)
@@ -18,7 +19,7 @@ class TransactionControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private EvaluateTransactionUseCaseImpl evaluateTransactionUseCase;
+    private EvaluateTransactionUseCase evaluateTransactionUseCase;
 
     @Test
     void should_return_202_for_valid_transaction() throws Exception {
@@ -68,5 +69,26 @@ class TransactionControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_return_structured_error_for_invalid_account_id() throws Exception {
+        String body = """
+                {
+                    "amount": 100.00,
+                    "currency": "USD",
+                    "fromAccount": "invalid",
+                    "toAccount": "US9876543210",
+                    "description": "Bad account format"
+                }
+                """;
+
+        mockMvc.perform(post("/api/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").exists());
     }
 }

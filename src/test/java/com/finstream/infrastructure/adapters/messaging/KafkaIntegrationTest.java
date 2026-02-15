@@ -1,7 +1,6 @@
 package com.finstream.infrastructure.adapters.messaging;
 
 import com.finstream.infrastructure.adapters.persistence.TransactionJpaRepository;
-import com.finstream.infrastructure.adapters.persistence.entity.TransactionEntity;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -42,7 +41,7 @@ class KafkaIntegrationTest {
     private TransactionJpaRepository transactionRepository;
 
     @Test
-    void should_consume_transaction_event_and_persist() {
+    void should_consume_valid_transaction_event_and_persist() {
         UUID txId = UUID.randomUUID();
         String payload = """
                 {
@@ -68,5 +67,56 @@ class KafkaIntegrationTest {
                                 assertThat(tx.getCurrency()).isEqualTo("USD");
                             });
                 });
+    }
+
+    @Test
+    void should_reject_event_with_invalid_account_id() {
+        UUID txId = UUID.randomUUID();
+        String payload = """
+                {
+                    "id": "%s",
+                    "amount": 100.00,
+                    "currency": "USD",
+                    "fromAccount": "invalid-account",
+                    "toAccount": "US9876543210",
+                    "description": "Invalid account test",
+                    "occurredAt": "2026-02-13T00:00:00Z"
+                }
+                """.formatted(txId);
+
+        kafkaTemplate.send("transactions.incoming", txId.toString(), payload);
+
+        // Allow time for the message to be processed (and rejected)
+        await().during(Duration.ofSeconds(3))
+                .atMost(Duration.ofSeconds(5))
+                .pollInterval(Duration.ofMillis(500))
+                .untilAsserted(() ->
+                        assertThat(transactionRepository.findById(txId)).isEmpty()
+                );
+    }
+
+    @Test
+    void should_reject_event_with_negative_amount() {
+        UUID txId = UUID.randomUUID();
+        String payload = """
+                {
+                    "id": "%s",
+                    "amount": -500.00,
+                    "currency": "USD",
+                    "fromAccount": "GB1234567890",
+                    "toAccount": "US9876543210",
+                    "description": "Negative amount test",
+                    "occurredAt": "2026-02-13T00:00:00Z"
+                }
+                """.formatted(txId);
+
+        kafkaTemplate.send("transactions.incoming", txId.toString(), payload);
+
+        await().during(Duration.ofSeconds(3))
+                .atMost(Duration.ofSeconds(5))
+                .pollInterval(Duration.ofMillis(500))
+                .untilAsserted(() ->
+                        assertThat(transactionRepository.findById(txId)).isEmpty()
+                );
     }
 }

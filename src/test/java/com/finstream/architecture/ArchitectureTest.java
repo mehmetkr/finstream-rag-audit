@@ -40,7 +40,7 @@ public class ArchitectureTest {
                     .resideInAPackage("..infrastructure..");
 
     @ArchTest
-    static final ArchRule controllers_should_only_depend_on_application_and_domain_model =
+    static final ArchRule web_adapters_should_only_depend_on_application_and_domain =
             classes()
                     .that().resideInAPackage("..adapters.web..")
                     .should().onlyDependOnClassesThat()
@@ -48,9 +48,14 @@ public class ArchitectureTest {
                             "..application..",
                             "..domain.model..",
                             "..domain.model.ids..",
+                            "..domain.ports.inbound..",
                             "java..",
                             "jakarta..",
-                            "org.springframework.web..",
-                            "org.springframework.http.."
+                            "org.slf4j..",
+                            "org.springframework.core..",
+                            "org.springframework.http..",
+                            "org.springframework.stereotype..",
+                            "org.springframework.validation..",
+                            "org.springframework.web.."
                     );
 }

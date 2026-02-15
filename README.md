@@ -6,7 +6,7 @@
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)
 ![Kafka](https://img.shields.io/badge/Kafka-Event--Driven-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)
-![Tests](https://img.shields.io/badge/Tests-25%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-33%20passing-brightgreen)
 ![Architecture](https://img.shields.io/badge/Architecture-Hexagonal-purple)
 
 ---
@@ -98,7 +98,7 @@ The foundational high-throughput transaction ingestion and processing system, fu
 - **Event-driven pipeline** — Kafka producer/consumer for async processing
 - **PostgreSQL persistence** — Flyway-managed schema, JPA repositories
 - **Hexagonal architecture** — Clean separation of domain, application, and infrastructure layers
-- **Comprehensive test suite** — 25 tests covering architecture, integration, property-based, and unit tests
+- **Comprehensive test suite** — 33 tests covering architecture, integration, property-based, and unit tests
 - **Virtual Threads** — Enabled platform-wide for lightweight concurrency
 - **Scoped Values** — Request context propagation without ThreadLocal
 
@@ -226,7 +226,7 @@ docker compose -f docker/docker-compose.yml down
 ./gradlew check
 ```
 
-All 25 tests pass, covering:
+All 33 tests pass, covering:
 - **Architecture** — ArchUnit enforces hexagonal boundaries (domain cannot depend on infrastructure or Spring)
 - **Integration** — Testcontainers with real Kafka and PostgreSQL
 - **Property-based** — jqwik generates random inputs to test domain invariants

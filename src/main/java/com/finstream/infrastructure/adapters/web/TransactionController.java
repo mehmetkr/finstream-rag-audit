@@ -1,11 +1,11 @@
 package com.finstream.infrastructure.adapters.web;
 
 import com.finstream.application.dto.TransactionRequest;
-import com.finstream.application.usecase.EvaluateTransactionUseCaseImpl;
 import com.finstream.domain.model.Amount;
 import com.finstream.domain.model.Transaction;
 import com.finstream.domain.model.ids.AccountId;
 import com.finstream.domain.model.ids.TransactionId;
+import com.finstream.domain.ports.inbound.EvaluateTransactionUseCase;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,9 +20,9 @@ import java.util.Currency;
 @RequestMapping("/api/transactions")
 public class TransactionController {
 
-    private final EvaluateTransactionUseCaseImpl evaluateTransactionUseCase;
+    private final EvaluateTransactionUseCase evaluateTransactionUseCase;
 
-    public TransactionController(EvaluateTransactionUseCaseImpl evaluateTransactionUseCase) {
+    public TransactionController(EvaluateTransactionUseCase evaluateTransactionUseCase) {
         this.evaluateTransactionUseCase = evaluateTransactionUseCase;
     }
 
