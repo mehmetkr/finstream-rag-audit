@@ -42,6 +42,9 @@ public class ScopedContextFilter implements Filter {
         final String finalTenantId = tenantId;
         final String finalUserId = userId;
 
+        // ScopedValue.where(...).run() accepts a Runnable, which cannot throw checked exceptions.
+        // FilterChain.doFilter() declares IOException and ServletException, so we must catch and
+        // wrap them. Spring's error handling infrastructure will unwrap these if they propagate.
         ScopedValue.where(RequestContext.TRACE_ID, finalTraceId)
                    .where(RequestContext.TENANT_ID, finalTenantId)
                    .where(RequestContext.USER_ID, finalUserId)
