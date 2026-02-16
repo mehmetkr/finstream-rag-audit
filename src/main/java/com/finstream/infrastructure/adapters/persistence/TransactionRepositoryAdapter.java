@@ -9,7 +9,9 @@ import com.finstream.infrastructure.adapters.persistence.entity.TransactionEntit
 import org.springframework.stereotype.Component;
 
 import java.util.Currency;
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class TransactionRepositoryAdapter implements TransactionRepository {
@@ -30,6 +32,12 @@ public class TransactionRepositoryAdapter implements TransactionRepository {
     @Override
     public Optional<Transaction> findById(TransactionId id) {
         return jpaRepository.findById(id.value()).map(this::toDomain);
+    }
+
+    @Override
+    public List<Transaction> findAllByIds(List<TransactionId> ids) {
+        List<UUID> uuids = ids.stream().map(TransactionId::value).toList();
+        return jpaRepository.findAllById(uuids).stream().map(this::toDomain).toList();
     }
 
     private TransactionEntity toEntity(Transaction transaction) {
