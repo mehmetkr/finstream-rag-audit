@@ -4,6 +4,7 @@ import com.finstream.domain.model.FraudDecision;
 import com.finstream.domain.model.FraudDecision.Decision;
 import com.finstream.domain.model.FraudEvaluationConfig;
 import com.finstream.domain.model.LlmFraudAssessment;
+import com.finstream.domain.model.RedactedTransaction;
 import com.finstream.domain.model.RuleGateResult;
 import com.finstream.domain.model.ScoredTransaction;
 import com.finstream.domain.model.Transaction;
@@ -11,6 +12,7 @@ import com.finstream.domain.ports.inbound.FraudEvaluationUseCase;
 import com.finstream.domain.ports.outbound.EmbeddingStorePort;
 import com.finstream.domain.ports.outbound.LlmFraudAnalysisPort;
 import com.finstream.domain.ports.outbound.UserHistoryPort;
+import com.finstream.domain.service.PiiRedactor;
 import com.finstream.domain.service.RuleGateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,17 +34,20 @@ public class FraudEvaluationUseCaseImpl implements FraudEvaluationUseCase {
     private final UserHistoryPort userHistoryPort;
     private final EmbeddingStorePort embeddingStorePort;
     private final LlmFraudAnalysisPort llmFraudAnalysisPort;
+    private final PiiRedactor piiRedactor;
     private final FraudEvaluationConfig config;
 
     public FraudEvaluationUseCaseImpl(RuleGateService ruleGateService,
                                        UserHistoryPort userHistoryPort,
                                        EmbeddingStorePort embeddingStorePort,
                                        LlmFraudAnalysisPort llmFraudAnalysisPort,
+                                       PiiRedactor piiRedactor,
                                        FraudEvaluationConfig config) {
         this.ruleGateService = ruleGateService;
         this.userHistoryPort = userHistoryPort;
         this.embeddingStorePort = embeddingStorePort;
         this.llmFraudAnalysisPort = llmFraudAnalysisPort;
+        this.piiRedactor = piiRedactor;
         this.config = config;
     }
 
@@ -101,12 +106,15 @@ public class FraudEvaluationUseCaseImpl implements FraudEvaluationUseCase {
                         return Optional.of(result);
                     });
 
+            // PII redaction before external LLM processing
+            RedactedTransaction redacted = piiRedactor.redact(transaction);
+
             // Chain: RAG → LLM (thenComposeAsync for dependent async step)
             CompletableFuture<Optional<LlmFraudAssessment>> llmFuture =
                     ragFuture.thenComposeAsync(ragOpt -> {
                         List<ScoredTransaction> similar = ragOpt.orElse(List.of());
                         return CompletableFuture.supplyAsync(
-                                () -> llmFraudAnalysisPort.analyze(transaction, similar),
+                                () -> llmFraudAnalysisPort.analyze(redacted, similar),
                                 executor
                         );
                     }, executor).handle((result, ex) -> {

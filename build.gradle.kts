@@ -42,6 +42,9 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-pgvector:1.11.0-beta19")
     implementation("dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:1.11.0-beta19")
 
+    // Resilience4j — circuit breaker (core library, no Spring starter)
+    implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.3.0")
+
     // Testing
     testImplementation(platform(SpringBootPlugin.BOM_COORDINATES))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
