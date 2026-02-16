@@ -12,6 +12,7 @@ import net.jqwik.api.constraints.Positive;
 import net.jqwik.api.constraints.BigRange;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Currency;
 import java.util.HashSet;
 import java.util.Set;
@@ -90,5 +91,56 @@ class DomainPropertyTest {
     @Provide
     Arbitrary<Integer> batchSize() {
         return Arbitraries.integers().between(2, 50);
+    }
+
+    // --- RuleGateResult ---
+
+    @Property(tries = 200)
+    void valid_rule_gate_results_should_always_be_constructable(
+            @ForAll("ruleGateDecisions") RuleGateResult.Decision decision) {
+        assertThatNoException().isThrownBy(() ->
+                new RuleGateResult(decision, "Test reason", decision.defaultScore()));
+    }
+
+    @Property(tries = 100)
+    void rule_gate_default_scores_should_be_non_negative(
+            @ForAll("ruleGateDecisions") RuleGateResult.Decision decision) {
+        assertThat(decision.defaultScore()).isGreaterThanOrEqualTo(BigDecimal.ZERO);
+    }
+
+    @Provide
+    Arbitrary<RuleGateResult.Decision> ruleGateDecisions() {
+        return Arbitraries.of(RuleGateResult.Decision.values());
+    }
+
+    // --- LlmFraudAssessment ---
+
+    @Property(tries = 200)
+    void valid_llm_assessments_should_always_be_constructable(
+            @ForAll @BigRange(min = "0", max = "100") BigDecimal riskScore) {
+        assertThatNoException().isThrownBy(() ->
+                new LlmFraudAssessment(riskScore, "Test reasoning"));
+    }
+
+    @Property(tries = 200)
+    void out_of_range_llm_assessments_should_be_rejected(
+            @ForAll @BigRange(min = "101", max = "999") BigDecimal riskScore) {
+        assertThatThrownBy(() -> new LlmFraudAssessment(riskScore, "Bad"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // --- FraudDecision ---
+
+    @Property(tries = 200)
+    void valid_fraud_decisions_should_always_be_constructable(
+            @ForAll @BigRange(min = "0", max = "100") BigDecimal riskScore,
+            @ForAll("fraudDecisions") FraudDecision.Decision decision) {
+        assertThatNoException().isThrownBy(() ->
+                new FraudDecision(decision, riskScore, "Test", Instant.now()));
+    }
+
+    @Provide
+    Arbitrary<FraudDecision.Decision> fraudDecisions() {
+        return Arbitraries.of(FraudDecision.Decision.values());
     }
 }
