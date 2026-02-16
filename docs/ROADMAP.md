@@ -30,22 +30,20 @@ This document outlines the planned evolution of the system beyond Phase 1.
 
 ---
 
-## Phase 2: AI-Powered Fraud Analysis
+## Phase 2: AI-Powered Fraud Analysis (Complete)
 
 **Goal:** Layer RAG/LLM intelligence onto the existing event-driven pipeline.
 
-- **LangChain4j RAG integration** — pgvector similarity search retrieves historically similar transactions as LLM context
-- **Two-phase fraud evaluation** — fast rule gate (<5ms) screens obvious cases; flagged transactions fan out via CompletableFuture scatter-gather with Virtual Threads to rule engine, RAG search, and user history in parallel
-- **Sealed interfaces for event types** — exhaustive pattern matching for transaction lifecycle events
-- **Transactional Outbox with Debezium CDC** — eliminates dual-write inconsistency between PostgreSQL and Kafka
-- **PII redaction** — irreversible redaction before LLM processing; zero-trust, no token vault
-- **Resilience4j circuit breaker** — rule-based fallback when LLM service is unavailable
-
-**Estimated effort:** 2–3 weekends
+- [x] **LangChain4j RAG integration** — pgvector similarity search retrieves historically similar transactions as LLM context
+- [x] **Two-phase fraud evaluation** — fast rule gate (<5ms) screens obvious cases; flagged transactions fan out via CompletableFuture scatter-gather with Virtual Threads to rule engine, RAG search, and user history in parallel
+- [x] **Sealed interfaces for event types** — exhaustive pattern matching for transaction lifecycle events
+- [x] **Transactional Outbox with Debezium CDC** — eliminates dual-write inconsistency between PostgreSQL and Kafka
+- [x] **PII redaction** — irreversible redaction before LLM processing; zero-trust, no token vault
+- [x] **Resilience4j circuit breaker** — rule-based fallback when LLM service is unavailable
 
 ---
 
-## Phase 3: Production Hardening
+## Phase 3: Production Hardening (Active)
 
 **Goal:** Security, observability, and performance validation for production readiness.
 

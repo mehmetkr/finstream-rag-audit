@@ -7,7 +7,7 @@
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)
 ![Kafka](https://img.shields.io/badge/Kafka-Event--Driven-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)
-![Tests](https://img.shields.io/badge/Tests-33%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-106%20passing-brightgreen)
 ![Architecture](https://img.shields.io/badge/Architecture-Hexagonal-purple)
 
 ---
@@ -16,7 +16,7 @@
 
 Real-time fraud detection requires sub-50ms latency. Introducing LLMs (RAG) typically adds 500ms+. This project demonstrates how to decouple high-throughput transaction processing from AI-based audit analysis using event-driven architecture, Virtual Threads, and Scoped Values — built on Java 25 and Spring Boot 4.0.
 
-The system is being developed in iterative phases. **Phase 1 (core pipeline)** is complete and fully tested. Future phases will layer in RAG/LLM intelligence, the Transactional Outbox pattern, security, and observability on top of this foundation.
+The system is being developed in iterative phases. **Phase 1 (core pipeline)** and **Phase 2 (AI-powered fraud analysis)** are complete and fully tested. Future phases will layer in security (OAuth2) and observability (OpenTelemetry) on top of this foundation.
 
 ---
 
@@ -33,49 +33,75 @@ Hexagonal (Ports & Adapters) architecture with an event-driven core. Domain logi
   │              │   POST     │  │          Transaction Controller      │   │
   │    Client    │──────────► │  │          (REST API)                  │   │
   │              │            │  └──────────────┬───────────────────────┘   │
-  └──────────────┘            │                 │                           │
-                              │                 ▼                           │
+  │              │            │                 │                           │
+  └──────────────┘            │                 ▼                           │
                               │  ┌──────────────────────────────────────┐   │
                               │  │      EvaluateTransactionUseCase      │   │
                               │  │      (Application Layer)             │   │
-                              │  └──────────┬───────────┬───────────────┘   │
-                              │             │           │                   │
-                              │             ▼           ▼                   │
-                              │  ┌────────────────┐ ┌─────────────────┐    │
-                              │  │ EventPublisher │ │ Transaction     │    │
-                              │  │ Port (Kafka)   │ │ Repository Port │    │
-                              │  └───────┬────────┘ └────────┬────────┘    │
-                              │          │                   │             │
-                              └──────────┼───────────────────┼─────────────┘
-                                         │                   │
-                                         ▼                   ▼
-                              ┌────────────────┐  ┌────────────────┐
-                              │     Kafka      │  │   PostgreSQL   │
-                              │  (Event Bus)   │  │   (pgvector)   │
-                              └───────┬────────┘  └────────────────┘
-                                      │                   ▲
-                                      ▼                   │
-                              ┌────────────────────────────┘
-                              │  Transaction Kafka Consumer
-                              │  (Persists to DB)
-                              └────────────────────────────
+                              │  └──────┬────────────┬──────────┬───────┘   │
+                              │         │            │          │           │
+                              │         ▼            ▼          ▼           │
+                              │  ┌────────────┐ ┌──────────┐ ┌────────────┐ │
+                              │  │ Rule Gate  │ │ RAG Search││ User History│ │
+                              │  │ Service    │ │ (Vector) │ │ Port       │ │
+                              │  └──────┬─────┘ └────┬─────┘ └──────┬─────┘ │
+                              │         │            │              │       │
+                              │         ▼            ▼              ▼       │
+                              │  ┌──────────────────────────────────────┐   │
+                              │  │       LLM Fraud Analysis Port        │   │
+                              │  │       (Resilience4j + PII Redaction) │   │
+                              │  └───────────────────┬──────────────────┘   │
+                              │                      │                      │
+                              │                      ▼                      │
+                              │  ┌──────────────────────────────────────┐   │
+                              │  │       OutboxEventPublisherAdapter    │   │
+                              │  │       (Transactional Outbox)         │   │
+                              │  └───────────────────┬──────────────────┘   │
+                              │                      │                      │
+                              │                      ▼                      │
+                              │            ┌──────────────────┐             │
+                              │            │   PostgreSQL     │             │
+                              │            │ (Table + Outbox) │             │
+                              │            └─────────┬────────┘             │
+                              │                      │ CDC (Debezium)       │
+                              │                      ▼                      │
+                              │            ┌──────────────────┐             │
+                              │            │      Kafka       │             │
+                              │            │   (Event Bus)    │             │
+                              │            └──────────────────┘             │
+                              └─────────────────────────────────────────────┘
 ```
+---
+
+## Current Status — Phase 2 Complete
+
+The system is fully operational with an event-driven core and an AI-powered fraud analysis pipeline.
+
+- **Two-Phase Fraud Evaluation** — Fast rule gate (<5ms) followed by parallel RAG/LLM analysis (scatter-gather)
+- **LangChain4j RAG** — pgvector similarity search retrieves historical context for the LLM
+- **Transactional Outbox + CDC** — Debezium eliminates dual-write inconsistencies between Postgres and Kafka
+- **PII Redaction** — Irreversible SHA-256 hashing + regex scrubbing before data reaches the LLM
+- **Resilience** — Circuit breakers (Resilience4j) ensure graceful degradation if the LLM is unavailable
+- **Sealed Interfaces** — Exhaustive pattern matching for transaction events
+- **106 tests** — Architecture, integration (Testcontainers), property-based (jqwik), unit
+
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for Phase 3 (production hardening) plans.
 
 ---
 
-## Current Status — Phase 1 Complete
+## Fraud Evaluation Flow
 
-The foundational high-throughput transaction ingestion and processing system, fully tested and working end-to-end.
-
-- **REST API** — Transaction submission endpoint with Bean Validation
-- **Event-driven pipeline** — Kafka producer/consumer for async processing
-- **PostgreSQL persistence** — Flyway-managed schema, JPA repositories
-- **Hexagonal architecture** — Clean separation enforced by ArchUnit
-- **33 tests** — Architecture, integration (Testcontainers), property-based (jqwik), unit
-- **Virtual Threads** — Enabled platform-wide for lightweight concurrency
-- **Scoped Values** — Request context propagation without ThreadLocal
-
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for Phase 2 (RAG/LLM fraud analysis) and Phase 3 (production hardening) plans.
+1. **Ingestion**: Transaction is received via REST API and persisted to PostgreSQL.
+2. **Phase 1 (Sync)**: `RuleGateService` checks amount thresholds and velocity.
+   - **BLOCK**: Immediate rejection (e.g., sanctioned entity).
+   - **APPROVE**: Immediate approval (low risk).
+   - **FLAG**: Proceed to Phase 2.
+3. **Phase 2 (Async)**: If flagged, the system fans out parallel tasks using Virtual Threads:
+   - **RAG Search**: Finds historically similar transactions (pgvector).
+   - **User History**: Fetches recent activity for the account.
+   - **LLM Analysis**: Combines RAG context + History + PII-redacted transaction data to prompt the LLM for a risk score.
+4. **Decision**: Scores are aggregated (weighted average) to produce a final `APPROVE` or `BLOCK` decision.
+5. **Audit**: The decision and reasoning are published to Kafka via the Transactional Outbox pattern.
 
 ---
 
@@ -83,11 +109,13 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md) for Phase 2 (RAG/LLM fraud analysis) an
 
 **Language & Framework:** Java 25, Spring Boot 4.0.2, Gradle 9.2 (Kotlin DSL)
 
-**Infrastructure:** Apache Kafka (event streaming), PostgreSQL 16 + pgvector (persistence & vectors), Flyway (migrations)
+**AI & Data:** LangChain4j (RAG), PostgreSQL 16 + pgvector, Debezium (CDC)
+
+**Infrastructure:** Apache Kafka (event streaming), Flyway (migrations), Resilience4j (circuit breakers)
 
 **Testing:** JUnit 5, Testcontainers 2.0, ArchUnit 1.4.1, jqwik 1.9.2, Awaitility
 
-**Architecture:** Hexagonal (Ports & Adapters), Event-Driven
+**Architecture:** Hexagonal (Ports & Adapters), Event-Driven, Outbox Pattern
 
 ---
 
@@ -160,21 +188,26 @@ docker compose -f docker/docker-compose.yml up -d
 # 3. Wait for services to be healthy, then start the app
 ./gradlew bootRun
 
-# 4. Submit a test transaction
+# 4. Submit a high-value transaction (triggers fraud evaluation)
 curl -X POST http://localhost:8080/api/transactions \
   -H "Content-Type: application/json" \
   -d '{
-    "amount": 1500.00,
+    "amount": 15000.00,
     "currency": "USD",
     "fromAccount": "US1234567890",
     "toAccount": "GB9876543210",
-    "description": "Wire transfer"
+    "description": "Large international wire transfer"
   }'
 # Returns: 202 Accepted
 
-# 5. Verify persistence
+# 5. Check logs for fraud evaluation result
+# (In the terminal where ./gradlew bootRun is running)
+# You should see: "Aggregated score for <uuid>: <score> → FLAG/BLOCK"
+# along with reasoning components (Rule gate | LLM | History)
+
+# 6. Verify Outbox event persistence (optional)
 docker exec docker-postgres-1 psql -U finstream -d finstream \
-  -c "SELECT id, amount, currency, from_account, to_account FROM transactions;"
+  -c "SELECT event_type, payload->'riskScore' as score FROM outbox_events WHERE event_type = 'TransactionEvaluated';"
 
 # 6. Cleanup
 docker compose -f docker/docker-compose.yml down
@@ -202,56 +235,43 @@ src/
 │   ├── FinStreamApplication.java
 │   │
 │   ├── domain/                         # Pure business logic — no framework dependencies
+│   │   ├── event/                      # Sealed event hierarchy
+│   │   │   ├── TransactionEvent.java
+│   │   │   ├── TransactionReceived.java
+│   │   │   └── TransactionEvaluated.java
 │   │   ├── model/
 │   │   │   ├── Transaction.java        # Core domain record
-│   │   │   ├── Amount.java             # Value object with currency
-│   │   │   ├── RequestContext.java      # ScopedValue-based context
-│   │   │   └── ids/                    # Strongly-typed identifiers
-│   │   │       ├── TransactionId.java
-│   │   │       └── AccountId.java
-│   │   └── ports/
-│   │       ├── inbound/
-│   │       │   └── EvaluateTransactionUseCase.java
-│   │       └── outbound/
-│   │           ├── EventPublisherPort.java
-│   │           └── TransactionRepository.java
+│   │   │   ├── FraudDecision.java      # Evaluation result
+│   │   │   ├── RedactedTransaction.java # PII-safe projection
+│   │   │   └── ...
+│   │   ├── ports/
+│   │   │   ├── inbound/
+│   │   │   │   └── FraudEvaluationUseCase.java
+│   │   │   └── outbound/
+│   │   │       ├── EmbeddingStorePort.java
+│   │   │       ├── LlmFraudAnalysisPort.java
+│   │   │       ├── UserHistoryPort.java
+│   │   │       └── ...
+│   │   └── service/
+│   │       ├── PiiRedactor.java        # Domain service (SHA-256 + Regex)
+│   │       └── RuleGateService.java    # Phase 1 logic
 │   │
 │   ├── application/                    # Use case orchestration
-│   │   ├── usecase/
-│   │   │   └── EvaluateTransactionUseCaseImpl.java
-│   │   └── dto/
-│   │       └── TransactionRequest.java
+│   │   └── FraudEvaluationUseCaseImpl.java # Scatter-gather logic
 │   │
 │   └── infrastructure/                 # Adapters — framework-dependent code
 │       └── adapters/
 │           ├── web/
 │           │   └── TransactionController.java
 │           ├── messaging/
-│           │   ├── EventPublisherKafkaAdapter.java
-│           │   └── TransactionKafkaConsumer.java
-│           └── persistence/
-│               ├── TransactionJpaRepository.java
-│               └── entity/
-│                   └── TransactionEntity.java
-│
-├── main/resources/
-│   ├── application.yml
-│   └── db/migration/
-│       └── V1__create_transactions_table.sql
-│
-└── test/java/com/finstream/
-    ├── architecture/
-    │   └── ArchitectureTest.java       # Hexagonal boundary enforcement
-    ├── domain/model/
-    │   ├── DomainModelTest.java        # Domain invariant tests + jqwik
-    │   └── RequestContextTest.java     # ScopedValue tests
-    └── infrastructure/adapters/
-        ├── messaging/
-        │   └── KafkaIntegrationTest.java
-        ├── persistence/
-        │   └── TransactionRepositoryIntegrationTest.java
-        └── web/
-            └── TransactionControllerTest.java
+│           │   └── OutboxEventPublisherAdapter.java
+│           ├── persistence/
+│           │   └── TransactionJpaRepository.java
+│           ├── embedding/
+│           │   └── PgVectorEmbeddingAdapter.java
+│           └── llm/
+│               ├── StubLlmFraudAnalysisAdapter.java
+│               └── ResilientLlmFraudAnalysisAdapter.java # Circuit Breaker decorator
 ```
 
 ---
@@ -263,8 +283,8 @@ Key architectural decisions are documented in [`docs/adr/`](docs/adr/):
 - **[ADR-0001](docs/adr/0001-hexagonal-architecture.md):** Hexagonal architecture — domain isolation, framework-independent testability
 - **[ADR-0002](docs/adr/0002-completablefuture-virtual-threads.md):** CompletableFuture + Virtual Threads over StructuredTaskScope — production-stable APIs, two-phase gating
 - **[ADR-0003](docs/adr/0003-pgvector-over-pinecone.md):** pgvector over Pinecone for vector storage — ACID co-location, no SaaS dependency
-- **ADR-0004 (planned):** Irreversible PII redaction before LLM processing
-- **ADR-0005 (planned):** Transactional Outbox with Debezium CDC
+- **[ADR-0004](docs/adr/0004-transactional-outbox-debezium.md):** Transactional Outbox with Debezium CDC — eliminates dual-write inconsistency
+- **[ADR-0005](docs/adr/0005-pii-redaction-before-llm.md):** Irreversible PII Redaction Before LLM Processing — SHA-256 hashing and regex scrubbing
 
 ---
 
