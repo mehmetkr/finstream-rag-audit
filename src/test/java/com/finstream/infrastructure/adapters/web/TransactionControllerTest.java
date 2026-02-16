@@ -1,18 +1,22 @@
 package com.finstream.infrastructure.adapters.web;
 
 import com.finstream.domain.ports.inbound.EvaluateTransactionUseCase;
+import com.finstream.infrastructure.config.SecurityConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TransactionController.class)
+@Import(SecurityConfiguration.class)
 class TransactionControllerTest {
 
     @Autowired
@@ -34,9 +38,28 @@ class TransactionControllerTest {
                 """;
 
         mockMvc.perform(post("/api/transactions")
+                        .with(jwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isAccepted());
+    }
+
+    @Test
+    void should_return_401_when_unauthenticated() throws Exception {
+        String body = """
+                {
+                    "amount": 100.00,
+                    "currency": "USD",
+                    "fromAccount": "GB1234567890",
+                    "toAccount": "US9876543210",
+                    "description": "Unauthorized attempt"
+                }
+                """;
+
+        mockMvc.perform(post("/api/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -48,6 +71,7 @@ class TransactionControllerTest {
                 """;
 
         mockMvc.perform(post("/api/transactions")
+                        .with(jwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
@@ -66,6 +90,7 @@ class TransactionControllerTest {
                 """;
 
         mockMvc.perform(post("/api/transactions")
+                        .with(jwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
@@ -84,6 +109,7 @@ class TransactionControllerTest {
                 """;
 
         mockMvc.perform(post("/api/transactions")
+                        .with(jwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
