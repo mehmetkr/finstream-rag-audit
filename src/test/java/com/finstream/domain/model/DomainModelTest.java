@@ -103,4 +103,60 @@ class DomainModelTest {
         assertThat(tx.description()).isEqualTo("Payment for services");
         assertThat(tx.occurredAt()).isEqualTo(now);
     }
+
+    // --- FraudDecision ---
+
+    @Test
+    void fraudDecision_should_accept_valid_values() {
+        Instant now = Instant.now();
+        FraudDecision decision = new FraudDecision(
+                FraudDecision.Decision.APPROVE, BigDecimal.valueOf(25), "Low risk", now);
+
+        assertThat(decision.decision()).isEqualTo(FraudDecision.Decision.APPROVE);
+        assertThat(decision.riskScore()).isEqualByComparingTo(BigDecimal.valueOf(25));
+        assertThat(decision.reasoning()).isEqualTo("Low risk");
+        assertThat(decision.evaluatedAt()).isEqualTo(now);
+    }
+
+    @Test
+    void fraudDecision_should_accept_boundary_risk_scores() {
+        Instant now = Instant.now();
+        assertThat(new FraudDecision(FraudDecision.Decision.APPROVE, BigDecimal.ZERO, "min", now)
+                .riskScore()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(new FraudDecision(FraudDecision.Decision.BLOCK, BigDecimal.valueOf(100), "max", now)
+                .riskScore()).isEqualByComparingTo(BigDecimal.valueOf(100));
+    }
+
+    @Test
+    void fraudDecision_should_reject_negative_risk_score() {
+        assertThatThrownBy(() -> new FraudDecision(
+                FraudDecision.Decision.APPROVE, BigDecimal.valueOf(-1), "bad", Instant.now()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void fraudDecision_should_reject_risk_score_above_100() {
+        assertThatThrownBy(() -> new FraudDecision(
+                FraudDecision.Decision.BLOCK, BigDecimal.valueOf(101), "bad", Instant.now()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void fraudDecision_should_reject_null_fields() {
+        Instant now = Instant.now();
+        assertThatThrownBy(() -> new FraudDecision(null, BigDecimal.TEN, "r", now))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new FraudDecision(FraudDecision.Decision.FLAG, null, "r", now))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new FraudDecision(FraudDecision.Decision.FLAG, BigDecimal.TEN, null, now))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new FraudDecision(FraudDecision.Decision.FLAG, BigDecimal.TEN, "r", null))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void decision_enum_should_have_three_values() {
+        assertThat(FraudDecision.Decision.values())
+                .containsExactly(FraudDecision.Decision.APPROVE, FraudDecision.Decision.FLAG, FraudDecision.Decision.BLOCK);
+    }
 }

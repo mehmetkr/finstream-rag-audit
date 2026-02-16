@@ -1,7 +1,7 @@
 package com.finstream.domain.ports.outbound;
 
-import com.finstream.domain.model.Transaction;
+import com.finstream.domain.event.TransactionEvent;
 
 public interface EventPublisherPort {
-    void publishTransactionReceived(Transaction transaction);
+    void publish(TransactionEvent event);
 }
