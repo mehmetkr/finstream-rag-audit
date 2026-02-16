@@ -4,6 +4,7 @@ import com.finstream.domain.model.Amount;
 import com.finstream.domain.model.FraudDecision;
 import com.finstream.domain.model.FraudDecision.Decision;
 import com.finstream.domain.model.LlmFraudAssessment;
+import com.finstream.domain.model.RedactedTransaction;
 import com.finstream.domain.model.ScoredTransaction;
 import com.finstream.domain.model.Transaction;
 import com.finstream.domain.model.ids.AccountId;
@@ -11,6 +12,7 @@ import com.finstream.domain.model.ids.TransactionId;
 import com.finstream.domain.ports.outbound.EmbeddingStorePort;
 import com.finstream.domain.ports.outbound.LlmFraudAnalysisPort;
 import com.finstream.domain.ports.outbound.UserHistoryPort;
+import com.finstream.domain.service.PiiRedactor;
 import com.finstream.domain.service.RuleGateService;
 import com.finstream.domain.model.FraudEvaluationConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,12 +57,14 @@ class FraudEvaluationUseCaseImplTest {
             70                    // flagMaxScore
     );
 
+    private final PiiRedactor piiRedactor = new PiiRedactor();
+
     @BeforeEach
     void setUp() {
         RuleGateService ruleGateService = new RuleGateService(AMOUNT_THRESHOLD, VELOCITY_LIMIT);
         useCase = new FraudEvaluationUseCaseImpl(
                 ruleGateService, userHistoryPort, embeddingStorePort,
-                llmFraudAnalysisPort, CONFIG);
+                llmFraudAnalysisPort, piiRedactor, CONFIG);
     }
 
     @Test
@@ -100,7 +104,7 @@ class FraudEvaluationUseCaseImplTest {
         when(embeddingStorePort.findSimilar(any(), eq(5))).thenReturn(similar);
         when(userHistoryPort.findRecentTransactions(any(), eq(20)))
                 .thenReturn(List.of(normalTransaction(BigDecimal.valueOf(12_000))));
-        when(llmFraudAnalysisPort.analyze(any(), any()))
+        when(llmFraudAnalysisPort.analyze(any(RedactedTransaction.class), any()))
                 .thenReturn(new LlmFraudAssessment(BigDecimal.valueOf(40), "Moderate risk"));
 
         FraudDecision decision = useCase.evaluate(tx);
@@ -109,7 +113,7 @@ class FraudEvaluationUseCaseImplTest {
         assertThat(decision.riskScore()).isBetween(BigDecimal.ZERO, BigDecimal.valueOf(100));
         assertThat(decision.reasoning()).contains("Rule gate");
         verify(embeddingStorePort).findSimilar(any(), eq(5));
-        verify(llmFraudAnalysisPort).analyze(any(), any());
+        verify(llmFraudAnalysisPort).analyze(any(RedactedTransaction.class), any());
     }
 
     @Test
@@ -120,7 +124,7 @@ class FraudEvaluationUseCaseImplTest {
         // Phase 2 mocks
         when(embeddingStorePort.findSimilar(any(), eq(5))).thenReturn(List.of());
         when(userHistoryPort.findRecentTransactions(any(), eq(20))).thenReturn(List.of());
-        when(llmFraudAnalysisPort.analyze(any(), any()))
+        when(llmFraudAnalysisPort.analyze(any(RedactedTransaction.class), any()))
                 .thenReturn(new LlmFraudAssessment(BigDecimal.valueOf(60), "High velocity concern"));
 
         FraudDecision decision = useCase.evaluate(tx);
@@ -140,7 +144,7 @@ class FraudEvaluationUseCaseImplTest {
         when(userHistoryPort.findRecentTransactions(any(), eq(20)))
                 .thenReturn(List.of(normalTransaction(BigDecimal.valueOf(12_000))));
         // LLM still runs with empty similar list
-        when(llmFraudAnalysisPort.analyze(any(), any()))
+        when(llmFraudAnalysisPort.analyze(any(RedactedTransaction.class), any()))
                 .thenReturn(new LlmFraudAssessment(BigDecimal.valueOf(45), "Analysis"));
 
         FraudDecision decision = useCase.evaluate(tx);
@@ -156,7 +160,7 @@ class FraudEvaluationUseCaseImplTest {
 
         when(embeddingStorePort.findSimilar(any(), anyInt())).thenReturn(List.of());
         when(userHistoryPort.findRecentTransactions(any(), eq(20))).thenReturn(List.of());
-        when(llmFraudAnalysisPort.analyze(any(), any()))
+        when(llmFraudAnalysisPort.analyze(any(RedactedTransaction.class), any()))
                 .thenThrow(new RuntimeException("LLM unavailable"));
 
         FraudDecision decision = useCase.evaluate(tx);
@@ -174,7 +178,7 @@ class FraudEvaluationUseCaseImplTest {
                 .thenThrow(new RuntimeException("RAG unavailable"));
         when(userHistoryPort.findRecentTransactions(any(), anyInt()))
                 .thenThrow(new RuntimeException("History unavailable"));
-        when(llmFraudAnalysisPort.analyze(any(), any()))
+        when(llmFraudAnalysisPort.analyze(any(RedactedTransaction.class), any()))
                 .thenThrow(new RuntimeException("LLM unavailable"));
 
         FraudDecision decision = useCase.evaluate(tx);
@@ -192,7 +196,7 @@ class FraudEvaluationUseCaseImplTest {
         when(embeddingStorePort.findSimilar(any(), eq(5))).thenReturn(List.of());
         when(userHistoryPort.findRecentTransactions(any(), eq(20)))
                 .thenReturn(List.of(normalTransaction(BigDecimal.valueOf(12_000))));
-        when(llmFraudAnalysisPort.analyze(any(), any()))
+        when(llmFraudAnalysisPort.analyze(any(RedactedTransaction.class), any()))
                 .thenReturn(new LlmFraudAssessment(BigDecimal.valueOf(30), "Low concern"));
 
         FraudDecision decision = useCase.evaluate(tx);
@@ -202,6 +206,22 @@ class FraudEvaluationUseCaseImplTest {
                 .contains("LLM")
                 .contains("History")
                 .contains("Weighted score");
+    }
+
+    @Test
+    void should_pass_redacted_transaction_to_llm_not_original() {
+        Transaction tx = transaction(BigDecimal.valueOf(15_000), "Pay john@test.com");
+        when(userHistoryPort.countRecentTransactions(any(), any())).thenReturn(2);
+
+        when(embeddingStorePort.findSimilar(any(), eq(5))).thenReturn(List.of());
+        when(userHistoryPort.findRecentTransactions(any(), eq(20))).thenReturn(List.of());
+        when(llmFraudAnalysisPort.analyze(any(RedactedTransaction.class), any()))
+                .thenReturn(new LlmFraudAssessment(BigDecimal.valueOf(30), "OK"));
+
+        useCase.evaluate(tx);
+
+        // Verify the LLM port received a RedactedTransaction, not the raw Transaction
+        verify(llmFraudAnalysisPort).analyze(any(RedactedTransaction.class), any());
     }
 
     private static Transaction normalTransaction(BigDecimal amount) {

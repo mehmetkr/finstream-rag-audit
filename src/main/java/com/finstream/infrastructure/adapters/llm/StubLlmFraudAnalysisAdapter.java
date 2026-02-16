@@ -1,18 +1,16 @@
 package com.finstream.infrastructure.adapters.llm;
 
 import com.finstream.domain.model.LlmFraudAssessment;
+import com.finstream.domain.model.RedactedTransaction;
 import com.finstream.domain.model.ScoredTransaction;
-import com.finstream.domain.model.Transaction;
 import com.finstream.domain.ports.outbound.LlmFraudAnalysisPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 
-@Component
 public class StubLlmFraudAnalysisAdapter implements LlmFraudAnalysisPort {
 
     private static final Logger log = LoggerFactory.getLogger(StubLlmFraudAnalysisAdapter.class);
@@ -20,7 +18,7 @@ public class StubLlmFraudAnalysisAdapter implements LlmFraudAnalysisPort {
     private static final BigDecimal MAX_SCORE = BigDecimal.valueOf(100);
 
     @Override
-    public LlmFraudAssessment analyze(Transaction transaction,
+    public LlmFraudAssessment analyze(RedactedTransaction transaction,
                                        List<ScoredTransaction> similarTransactions) {
         BigDecimal amountScore = computeAmountScore(transaction);
         BigDecimal similarityAdjustment = computeSimilarityAdjustment(similarTransactions);
@@ -36,7 +34,7 @@ public class StubLlmFraudAnalysisAdapter implements LlmFraudAnalysisPort {
         return new LlmFraudAssessment(finalScore, reasoning);
     }
 
-    private static BigDecimal computeAmountScore(Transaction transaction) {
+    private static BigDecimal computeAmountScore(RedactedTransaction transaction) {
         // Scale linearly: 200 currency units ≈ 1.0 risk score, capped at 100
         return transaction.amount().value()
                 .divide(AMOUNT_SCALE_FACTOR, 2, RoundingMode.HALF_UP)
