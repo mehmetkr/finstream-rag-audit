@@ -9,7 +9,9 @@ import com.finstream.domain.model.RequestContext;
 import com.finstream.domain.model.Transaction;
 import com.finstream.domain.model.ids.AccountId;
 import com.finstream.domain.model.ids.TransactionId;
+import com.finstream.domain.ports.inbound.FraudEvaluationUseCase;
 import com.finstream.domain.ports.outbound.EmbeddingStorePort;
+import com.finstream.domain.ports.outbound.EventPublisherPort;
 import com.finstream.domain.ports.outbound.TransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,13 +34,19 @@ public class TransactionKafkaConsumer {
 
     private final TransactionRepository repository;
     private final EmbeddingStorePort embeddingStore;
+    private final FraudEvaluationUseCase fraudEvaluationUseCase;
+    private final EventPublisherPort eventPublisher;
     private final ObjectMapper objectMapper;
 
     public TransactionKafkaConsumer(TransactionRepository repository,
                                     EmbeddingStorePort embeddingStore,
+                                    FraudEvaluationUseCase fraudEvaluationUseCase,
+                                    EventPublisherPort eventPublisher,
                                     ObjectMapper objectMapper) {
         this.repository = repository;
         this.embeddingStore = embeddingStore;
+        this.fraudEvaluationUseCase = fraudEvaluationUseCase;
+        this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
     }
 
@@ -66,6 +74,12 @@ public class TransactionKafkaConsumer {
                 repository.save(transaction);
                 embeddingStore.store(transaction.id(), transaction);
                 log.info("[{}] Persisted and embedded transaction: {}", traceId, transaction.id().value());
+
+                FraudDecision decision = fraudEvaluationUseCase.evaluate(transaction);
+                var evaluated = new TransactionEvaluated(transaction, decision, Instant.now());
+                eventPublisher.publish(evaluated);
+                log.info("[{}] Evaluated transaction {}: {} (risk: {})",
+                        traceId, transaction.id().value(), decision.decision(), decision.riskScore());
             }
             case TransactionEvaluated(var transaction, var decision, _) ->
                     log.info("[{}] Audit: transaction {} \u2014 {} (risk: {})",

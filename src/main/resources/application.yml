@@ -33,6 +33,21 @@ spring:
 server:
   port: 8080
 
+finstream:
+  fraud:
+    amount-threshold: 10000
+    velocity-limit: 10
+    velocity-window: PT1H
+    rag-max-results: 5
+    history-limit: 20
+    weights:
+      rule-gate: 0.20
+      rag: 0.30
+      llm: 0.50
+    thresholds:
+      approve-max: 30
+      flag-max: 70
+
 management:
   endpoints:
     web:
