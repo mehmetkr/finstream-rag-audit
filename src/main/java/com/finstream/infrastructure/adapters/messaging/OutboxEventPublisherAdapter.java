@@ -4,37 +4,42 @@ import com.finstream.domain.event.TransactionEvaluated;
 import com.finstream.domain.event.TransactionEvent;
 import com.finstream.domain.event.TransactionReceived;
 import com.finstream.domain.ports.outbound.EventPublisherPort;
+import com.finstream.infrastructure.adapters.persistence.OutboxJpaRepository;
+import com.finstream.infrastructure.adapters.persistence.entity.OutboxEventEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Component
-public class EventPublisherKafkaAdapter implements EventPublisherPort {
+public class OutboxEventPublisherAdapter implements EventPublisherPort {
 
-    private static final Logger log = LoggerFactory.getLogger(EventPublisherKafkaAdapter.class);
-    private static final String TOPIC_INCOMING = "transactions.incoming";
-    private static final String TOPIC_EVALUATED = "transactions.evaluated";
+    private static final Logger log = LoggerFactory.getLogger(OutboxEventPublisherAdapter.class);
+    private static final String AGGREGATE_TYPE = "Transaction";
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final OutboxJpaRepository outboxRepository;
     private final ObjectMapper objectMapper;
 
-    public EventPublisherKafkaAdapter(KafkaTemplate<String, String> kafkaTemplate,
-                                       ObjectMapper objectMapper) {
-        this.kafkaTemplate = kafkaTemplate;
+    public OutboxEventPublisherAdapter(OutboxJpaRepository outboxRepository,
+                                        ObjectMapper objectMapper) {
+        this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
     }
 
     @Override
     public void publish(TransactionEvent event) {
         try {
-            var routed = switch (event) {
-                case TransactionReceived(var txn, _) -> new RoutedPayload(
-                        TOPIC_INCOMING,
+            String eventType = switch (event) {
+                case TransactionReceived _ -> "TransactionReceived";
+                case TransactionEvaluated _ -> "TransactionEvaluated";
+            };
+
+            String payload = switch (event) {
+                case TransactionReceived(var txn, _) -> objectMapper.writeValueAsString(
                         new TransactionReceivedPayload(
                                 txn.id().value().toString(),
                                 txn.amount().value(),
@@ -43,10 +48,8 @@ public class EventPublisherKafkaAdapter implements EventPublisherPort {
                                 txn.toAccount().value(),
                                 txn.description(),
                                 txn.occurredAt().toString()
-                        )
-                );
-                case TransactionEvaluated(var txn, var decision, _) -> new RoutedPayload(
-                        TOPIC_EVALUATED,
+                        ));
+                case TransactionEvaluated(var txn, var decision, _) -> objectMapper.writeValueAsString(
                         new TransactionEvaluatedPayload(
                                 txn.id().value().toString(),
                                 txn.amount().value(),
@@ -59,21 +62,22 @@ public class EventPublisherKafkaAdapter implements EventPublisherPort {
                                 decision.riskScore(),
                                 decision.reasoning(),
                                 decision.evaluatedAt().toString()
-                        )
-                );
+                        ));
             };
 
-            String payload = objectMapper.writeValueAsString(routed.payload());
-            String key = event.transactionId().value().toString();
-            kafkaTemplate.send(routed.topic(), key, payload);
-            log.info("Published {} for transaction: {}",
-                    event.getClass().getSimpleName(), event.transactionId().value());
+            var entity = new OutboxEventEntity();
+            entity.setAggregateType(AGGREGATE_TYPE);
+            entity.setAggregateId(event.transactionId().value().toString());
+            entity.setEventType(eventType);
+            entity.setPayload(payload);
+            entity.setCreatedAt(Instant.now());
+
+            outboxRepository.save(entity);
+            log.info("Outbox: wrote {} for transaction {}", eventType, event.transactionId().value());
         } catch (JacksonException e) {
-            throw new RuntimeException("Failed to serialize transaction event", e);
+            throw new RuntimeException("Failed to serialize transaction event for outbox", e);
         }
     }
-
-    private record RoutedPayload(String topic, Object payload) {}
 
     private record TransactionReceivedPayload(
             String id, BigDecimal amount, String currency,

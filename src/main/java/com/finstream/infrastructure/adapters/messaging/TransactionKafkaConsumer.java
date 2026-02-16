@@ -16,7 +16,6 @@ import com.finstream.domain.ports.outbound.TransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,13 +50,14 @@ public class TransactionKafkaConsumer {
     }
 
     @Transactional
-    @KafkaListener(topics = {"transactions.incoming", "transactions.evaluated"}, groupId = "finstream-group")
-    public void handle(String payload, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
+    @KafkaListener(topics = "outbox.event.Transaction", groupId = "finstream-group")
+    public void handle(String payload,
+                       @Header(value = "eventType", required = false) String eventType) {
         String traceId = UUID.randomUUID().toString();
 
         RequestContext.runWithContext(traceId, "kafka-consumer", "system", () -> {
             try {
-                TransactionEvent event = deserialize(payload, topic);
+                TransactionEvent event = deserialize(payload, eventType);
                 process(event, traceId);
             } catch (IllegalArgumentException e) {
                 log.warn("[{}] Rejected invalid transaction event: {}", traceId, e.getMessage());
@@ -88,16 +88,16 @@ public class TransactionKafkaConsumer {
         }
     }
 
-    private TransactionEvent deserialize(String payload, String topic) throws Exception {
-        return switch (topic) {
-            case "transactions.incoming" -> {
+    private TransactionEvent deserialize(String payload, String eventType) throws Exception {
+        return switch (eventType) {
+            case "TransactionReceived" -> {
                 var dto = objectMapper.readValue(payload, TransactionReceivedEvent.class);
                 yield new TransactionReceived(
                         mapTransaction(dto.id(), dto.amount(), dto.currency(),
                                 dto.fromAccount(), dto.toAccount(), dto.description(), dto.occurredAt()),
                         Instant.now());
             }
-            case "transactions.evaluated" -> {
+            case "TransactionEvaluated" -> {
                 var dto = objectMapper.readValue(payload, TransactionEvaluatedEvent.class);
                 var decision = new FraudDecision(
                         FraudDecision.Decision.valueOf(dto.decision()),
@@ -108,7 +108,8 @@ public class TransactionKafkaConsumer {
                                 dto.fromAccount(), dto.toAccount(), dto.description(), dto.occurredAt()),
                         decision, Instant.now());
             }
-            default -> throw new IllegalArgumentException("Unknown topic: " + topic);
+            case null -> throw new IllegalArgumentException("Missing eventType header");
+            default -> throw new IllegalArgumentException("Unknown event type: " + eventType);
         };
     }
 

@@ -8,6 +8,7 @@ import com.finstream.domain.ports.outbound.EventPublisherPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
@@ -23,6 +24,7 @@ public class EvaluateTransactionUseCaseImpl implements EvaluateTransactionUseCas
     }
 
     @Override
+    @Transactional
     public void submit(Transaction transaction) {
         String traceId = RequestContext.TRACE_ID.isBound() ? RequestContext.TRACE_ID.get() : "no-trace";
         log.info("[{}] Evaluating transaction: {}", traceId, transaction.id().value());

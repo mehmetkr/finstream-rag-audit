@@ -1,6 +1,7 @@
 package com.finstream.infrastructure.adapters.messaging;
 
 import com.finstream.infrastructure.adapters.persistence.TransactionJpaRepository;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,6 +12,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.ConfluentKafkaContainer;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.UUID;
 
@@ -55,7 +57,9 @@ class KafkaIntegrationTest {
                 }
                 """.formatted(txId);
 
-        kafkaTemplate.send("transactions.incoming", txId.toString(), payload);
+        var record = new ProducerRecord<>("outbox.event.Transaction", txId.toString(), payload);
+        record.headers().add("eventType", "TransactionReceived".getBytes(StandardCharsets.UTF_8));
+        kafkaTemplate.send(record);
 
         await().atMost(Duration.ofSeconds(30))
                 .pollInterval(Duration.ofMillis(500))
@@ -84,7 +88,9 @@ class KafkaIntegrationTest {
                 }
                 """.formatted(txId);
 
-        kafkaTemplate.send("transactions.incoming", txId.toString(), payload);
+        var record = new ProducerRecord<>("outbox.event.Transaction", txId.toString(), payload);
+        record.headers().add("eventType", "TransactionReceived".getBytes(StandardCharsets.UTF_8));
+        kafkaTemplate.send(record);
 
         // Allow time for the message to be processed (and rejected)
         await().during(Duration.ofSeconds(3))
@@ -110,7 +116,9 @@ class KafkaIntegrationTest {
                 }
                 """.formatted(txId);
 
-        kafkaTemplate.send("transactions.incoming", txId.toString(), payload);
+        var record = new ProducerRecord<>("outbox.event.Transaction", txId.toString(), payload);
+        record.headers().add("eventType", "TransactionReceived".getBytes(StandardCharsets.UTF_8));
+        kafkaTemplate.send(record);
 
         await().during(Duration.ofSeconds(3))
                 .atMost(Duration.ofSeconds(5))
