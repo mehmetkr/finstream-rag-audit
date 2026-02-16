@@ -2,6 +2,13 @@ spring:
   application:
     name: finstream-rag-audit
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/realms/finstream
+          jwk-set-uri: http://localhost:8081/realms/finstream/protocol/openid-connect/certs
+
   threads:
     virtual:
       enabled: true
