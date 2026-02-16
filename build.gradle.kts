@@ -3,6 +3,7 @@ import org.springframework.boot.gradle.plugin.SpringBootPlugin
 plugins {
     java
     id("org.springframework.boot") version "4.0.2"
+    id("me.champeau.jmh") version "0.7.2"
     jacoco
 }
 
@@ -84,4 +85,15 @@ tasks.jacocoTestReport {
         xml.required = true
         csv.required = false
     }
+}
+
+jmh {
+    fork = 1
+    warmupIterations = 1
+    iterations = 3
+    resultFormat = "JSON"
+}
+
+tasks.named("jmhJar", Jar::class.java) {
+    isZip64 = true
 }
