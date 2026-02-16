@@ -9,6 +9,7 @@ import com.finstream.domain.model.RequestContext;
 import com.finstream.domain.model.Transaction;
 import com.finstream.domain.model.ids.AccountId;
 import com.finstream.domain.model.ids.TransactionId;
+import com.finstream.domain.ports.outbound.EmbeddingStorePort;
 import com.finstream.domain.ports.outbound.TransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,11 +31,14 @@ public class TransactionKafkaConsumer {
     private static final Logger log = LoggerFactory.getLogger(TransactionKafkaConsumer.class);
 
     private final TransactionRepository repository;
+    private final EmbeddingStorePort embeddingStore;
     private final ObjectMapper objectMapper;
 
     public TransactionKafkaConsumer(TransactionRepository repository,
+                                    EmbeddingStorePort embeddingStore,
                                     ObjectMapper objectMapper) {
         this.repository = repository;
+        this.embeddingStore = embeddingStore;
         this.objectMapper = objectMapper;
     }
 
@@ -60,7 +64,8 @@ public class TransactionKafkaConsumer {
         switch (event) {
             case TransactionReceived(var transaction, _) -> {
                 repository.save(transaction);
-                log.info("[{}] Persisted transaction: {}", traceId, transaction.id().value());
+                embeddingStore.store(transaction.id(), transaction);
+                log.info("[{}] Persisted and embedded transaction: {}", traceId, transaction.id().value());
             }
             case TransactionEvaluated(var transaction, var decision, _) ->
                     log.info("[{}] Audit: transaction {} \u2014 {} (risk: {})",
