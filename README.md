@@ -209,7 +209,7 @@ curl -X POST http://localhost:8080/api/transactions \
 docker exec docker-postgres-1 psql -U finstream -d finstream \
   -c "SELECT event_type, payload->'riskScore' as score FROM outbox_events WHERE event_type = 'TransactionEvaluated';"
 
-# 6. Cleanup
+# 7. Cleanup
 docker compose -f docker/docker-compose.yml down
 ```
 
@@ -219,11 +219,11 @@ docker compose -f docker/docker-compose.yml down
 ./gradlew check
 ```
 
-All 33 tests pass, covering:
+All 106 tests pass, covering:
 - **Architecture** — ArchUnit enforces hexagonal boundaries (domain cannot depend on infrastructure or Spring)
-- **Integration** — Testcontainers with real Kafka and PostgreSQL
-- **Property-based** — jqwik generates random inputs to test domain invariants
-- **Unit** — Domain model validation, use case logic
+- **Integration** — Testcontainers with real Kafka and PostgreSQL (Outbox, RAG, Debezium)
+- **Property-based** — jqwik generates random inputs to test domain invariants (PII redaction safety)
+- **Unit** — Domain model validation, use case logic (Scatter-gather, Circuit Breaker, Rule Gate)
 
 ---
 
