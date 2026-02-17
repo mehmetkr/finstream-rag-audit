@@ -7,7 +7,7 @@
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)
 ![Kafka](https://img.shields.io/badge/Kafka-Event--Driven-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)
-![Tests](https://img.shields.io/badge/Tests-106%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-107%20passing-brightgreen)
 ![Architecture](https://img.shields.io/badge/Architecture-Hexagonal-purple)
 
 ---
@@ -73,19 +73,19 @@ Hexagonal (Ports & Adapters) architecture with an event-driven core. Domain logi
 ```
 ---
 
-## Current Status — Phase 2 Complete
+## Current Status — Phase 3 In Progress (Security Complete)
 
-The system is fully operational with an event-driven core and an AI-powered fraud analysis pipeline.
+The system is fully operational with an event-driven core, AI-powered fraud analysis, and production-grade security.
 
-- **Two-Phase Fraud Evaluation** — Fast rule gate (<5ms) followed by parallel RAG/LLM analysis (scatter-gather)
-- **LangChain4j RAG** — pgvector similarity search retrieves historical context for the LLM
-- **Transactional Outbox + CDC** — Debezium eliminates dual-write inconsistencies between Postgres and Kafka
-- **PII Redaction** — Irreversible SHA-256 hashing + regex scrubbing before data reaches the LLM
-- **Resilience** — Circuit breakers (Resilience4j) ensure graceful degradation if the LLM is unavailable
-- **Sealed Interfaces** — Exhaustive pattern matching for transaction events
-- **106 tests** — Architecture, integration (Testcontainers), property-based (jqwik), unit
+- **Security** — OAuth 2.0 Resource Server with Keycloak (JWT authentication)
+- **Two-Phase Fraud Evaluation** — Fast rule gate (<5ms) followed by parallel RAG/LLM analysis
+- **LangChain4j RAG** — pgvector similarity search retrieves historical context
+- **Transactional Outbox + CDC** — Debezium eliminates dual-write inconsistencies
+- **PII Redaction** — Irreversible SHA-256 hashing + regex scrubbing
+- **Resilience** — Circuit breakers (Resilience4j)
+- **107 tests** — Architecture, integration, property-based, and security tests
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for Phase 3 (production hardening) plans.
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for remaining Phase 3 plans (Observability, Performance).
 
 ---
 
@@ -107,11 +107,11 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md) for Phase 3 (production hardening) plan
 
 ## Tech Stack
 
-**Language & Framework:** Java 25, Spring Boot 4.0.2, Gradle 9.2 (Kotlin DSL)
+**Language & Framework:** Java 25, Spring Boot 4.0.2, Spring Security 6, Gradle 9.2 (Kotlin DSL)
 
 **AI & Data:** LangChain4j (RAG), PostgreSQL 16 + pgvector, Debezium (CDC)
 
-**Infrastructure:** Apache Kafka (event streaming), Flyway (migrations), Resilience4j (circuit breakers)
+**Infrastructure:** Apache Kafka, Keycloak (Identity Provider), Flyway, Resilience4j
 
 **Testing:** JUnit 5, Testcontainers 2.0, ArchUnit 1.4.1, jqwik 1.9.2, Awaitility
 
@@ -188,8 +188,15 @@ docker compose -f docker/docker-compose.yml up -d
 # 3. Wait for services to be healthy, then start the app
 ./gradlew bootRun
 
-# 4. Submit a high-value transaction (triggers fraud evaluation)
+# 4. Obtain a JWT token from Keycloak
+TOKEN=$(curl -s -X POST http://localhost:8081/realms/finstream/protocol/openid-connect/token \
+  -d "grant_type=client_credentials" \
+  -d "client_id=finstream-api" \
+  -d "client_secret=secret" | jq -r '.access_token')
+
+# 5. Submit a high-value transaction (triggers fraud evaluation)
 curl -X POST http://localhost:8080/api/transactions \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "amount": 15000.00,
@@ -200,16 +207,16 @@ curl -X POST http://localhost:8080/api/transactions \
   }'
 # Returns: 202 Accepted
 
-# 5. Check logs for fraud evaluation result
+# 6. Check logs for fraud evaluation result
 # (In the terminal where ./gradlew bootRun is running)
 # You should see: "Aggregated score for <uuid>: <score> → FLAG/BLOCK"
 # along with reasoning components (Rule gate | LLM | History)
 
-# 6. Verify Outbox event persistence (optional)
+# 7. Verify Outbox event persistence (optional)
 docker exec docker-postgres-1 psql -U finstream -d finstream \
   -c "SELECT event_type, payload->'riskScore' as score FROM outbox_events WHERE event_type = 'TransactionEvaluated';"
 
-# 7. Cleanup
+# 8. Cleanup
 docker compose -f docker/docker-compose.yml down
 ```
 
@@ -219,8 +226,9 @@ docker compose -f docker/docker-compose.yml down
 ./gradlew check
 ```
 
-All 106 tests pass, covering:
-- **Architecture** — ArchUnit enforces hexagonal boundaries (domain cannot depend on infrastructure or Spring)
+All 107 tests pass, covering:
+- **Security** — OAuth2 integration, 401/403 handling
+- **Architecture** — ArchUnit enforces hexagonal boundaries
 - **Integration** — Testcontainers with real Kafka and PostgreSQL (Outbox, RAG, Debezium)
 - **Property-based** — jqwik generates random inputs to test domain invariants (PII redaction safety)
 - **Unit** — Domain model validation, use case logic (Scatter-gather, Circuit Breaker, Rule Gate)
@@ -260,6 +268,10 @@ src/
 │   │   └── FraudEvaluationUseCaseImpl.java # Scatter-gather logic
 │   │
 │   └── infrastructure/                 # Adapters — framework-dependent code
+│       ├── config/
+│       │   ├── FraudEvaluationConfiguration.java
+│       │   ├── FraudEvaluationProperties.java
+│       │   └── SecurityConfiguration.java
 │       └── adapters/
 │           ├── web/
 │           │   └── TransactionController.java
