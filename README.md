@@ -16,7 +16,7 @@
 
 Real-time fraud detection requires sub-50ms latency. Introducing LLMs (RAG) typically adds 500ms+. This project demonstrates how to decouple high-throughput transaction processing from AI-based audit analysis using event-driven architecture, Virtual Threads, and Scoped Values — built on Java 25 and Spring Boot 4.0.
 
-The system is being developed in iterative phases. **Phase 1 (core pipeline)** and **Phase 2 (AI-powered fraud analysis)** are complete and fully tested. Future phases will layer in security (OAuth2) and observability (OpenTelemetry) on top of this foundation.
+The system is being developed in iterative phases. **Phase 1 (core pipeline)** and **Phase 2 (AI-powered fraud analysis)** are complete and fully tested. Phase 3 added OAuth2 security; observability (OpenTelemetry) is planned next.
 
 ---
 
