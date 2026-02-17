@@ -302,4 +302,4 @@ Key architectural decisions are documented in [`docs/adr/`](docs/adr/):
 
 ## License
 
-MIT
+GPLv3
