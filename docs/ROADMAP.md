@@ -47,9 +47,9 @@ This document outlines the planned evolution of the system beyond Phase 1.
 
 **Goal:** Security, observability, and performance validation for production readiness.
 
-- **OAuth 2.0 / Keycloak** — authentication and authorization
-- **OpenTelemetry** — distributed tracing across HTTP → Kafka → consumer → DB
-- **Grafana dashboards** — transaction throughput, fraud detection latency, error rates
-- **JMH benchmarks** — quantify throughput and latency under load
+- [x] **OAuth 2.0 / Keycloak** — Secure the REST API with JWT authentication (Resource Server)
+- [ ] **OpenTelemetry** — Distributed tracing (Deferred)
+- [ ] **Grafana dashboards** — Observability visualization (Deferred)
+- [ ] **JMH benchmarks** — Performance validation (Deferred)
 
 **Estimated effort:** 2 weekends
