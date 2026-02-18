@@ -27,13 +27,11 @@ public class RuleGateService {
 
     public RuleGateResult evaluate(Transaction transaction, int recentTransactionCount) {
         // Check sanctioned patterns first (highest priority)
-        if (transaction.description() != null) {
-            for (Pattern pattern : SANCTIONED_PATTERNS) {
-                if (pattern.matcher(transaction.description()).find()) {
-                    return new RuleGateResult(Decision.BLOCK,
-                            "Sanctioned pattern detected: " + pattern.pattern(),
-                            Decision.BLOCK.defaultScore());
-                }
+        for (Pattern pattern : SANCTIONED_PATTERNS) {
+            if (pattern.matcher(transaction.description()).find()) {
+                return new RuleGateResult(Decision.BLOCK,
+                        "Sanctioned pattern detected: " + pattern.pattern(),
+                        Decision.BLOCK.defaultScore());
             }
         }
 
