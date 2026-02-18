@@ -7,7 +7,7 @@
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)
 ![Kafka](https://img.shields.io/badge/Kafka-Event--Driven-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)
-![Tests](https://img.shields.io/badge/Tests-107%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-114%20passing-brightgreen)
 ![Architecture](https://img.shields.io/badge/Architecture-Hexagonal-purple)
 
 ---
@@ -83,7 +83,7 @@ The system is fully operational with an event-driven core, AI-powered fraud anal
 - **Transactional Outbox + CDC** — Debezium eliminates dual-write inconsistencies
 - **PII Redaction** — Irreversible SHA-256 hashing + regex scrubbing
 - **Resilience** — Circuit breakers (Resilience4j)
-- **107 tests** — Architecture, integration, property-based, and security tests
+- **114 tests** — Architecture, integration, property-based, and security tests
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for remaining Phase 3 plans (Observability, Performance).
 
@@ -226,7 +226,7 @@ docker compose -f docker/docker-compose.yml down
 ./gradlew check
 ```
 
-All 107 tests pass, covering:
+All 114 tests pass, covering:
 - **Security** — OAuth2 integration, 401/403 handling
 - **Architecture** — ArchUnit enforces hexagonal boundaries
 - **Integration** — Testcontainers with real Kafka and PostgreSQL (Outbox, RAG, Debezium)
