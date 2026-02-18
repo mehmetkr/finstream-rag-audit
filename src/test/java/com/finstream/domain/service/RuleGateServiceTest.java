@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Currency;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RuleGateServiceTest {
 
@@ -123,18 +124,16 @@ class RuleGateServiceTest {
     }
 
     @Test
-    void should_handle_null_description_gracefully() {
-        Transaction tx = new Transaction(
+    void should_reject_null_description_at_construction() {
+        assertThatThrownBy(() -> new Transaction(
                 TransactionId.generate(),
                 new Amount(BigDecimal.valueOf(500), Currency.getInstance("USD")),
                 new AccountId("GB1234567890"),
                 new AccountId("US9876543210"),
                 null,
                 Instant.now()
-        );
-        RuleGateResult result = service.evaluate(tx, 2);
-
-        assertThat(result.decision()).isEqualTo(Decision.APPROVE);
+        )).isInstanceOf(NullPointerException.class)
+          .hasMessageContaining("Description cannot be null");
     }
 
     private static Transaction transaction(BigDecimal amount, String description) {

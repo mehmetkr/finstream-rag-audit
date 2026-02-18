@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class FraudEvaluationUseCaseImpl implements FraudEvaluationUseCase {
 
@@ -116,7 +117,7 @@ public class FraudEvaluationUseCaseImpl implements FraudEvaluationUseCase {
                         return CompletableFuture.supplyAsync(
                                 () -> llmFraudAnalysisPort.analyze(redacted, similar),
                                 executor
-                        );
+                        ).orTimeout(5, TimeUnit.SECONDS);
                     }, executor).handle((result, ex) -> {
                         if (ex != null) {
                             log.warn("LLM analysis failed for {}: {}", transaction.id().value(), ex.getMessage());

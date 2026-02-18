@@ -62,8 +62,7 @@ public class TransactionKafkaConsumer {
             } catch (IllegalArgumentException e) {
                 log.warn("[{}] Rejected invalid transaction event: {}", traceId, e.getMessage());
             } catch (Exception e) {
-                log.error("[{}] Failed to process transaction event", traceId, e);
-                throw new RuntimeException("Failed to process transaction event", e);
+                log.error("[{}] Failed to process transaction event (poison pill dropped)", traceId, e);
             }
         });
     }
