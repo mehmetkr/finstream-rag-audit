@@ -48,7 +48,7 @@ This document outlines the planned evolution of the system beyond Phase 1.
 **Goal:** Security, observability, and performance validation for production readiness.
 
 - [x] **OAuth 2.0 / Keycloak** — Secure the REST API with JWT authentication (Resource Server)
-- [ ] **OpenTelemetry** — Distributed tracing (Deferred)
+- [x] **OpenTelemetry** — Distributed tracing via Micrometer + OTLP (Jaeger)
 - [ ] **Grafana dashboards** — Observability visualization (Deferred)
 - [ ] **JMH benchmarks** — Performance validation (Deferred)
 

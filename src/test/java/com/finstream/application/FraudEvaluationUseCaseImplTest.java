@@ -15,8 +15,8 @@ import com.finstream.domain.ports.outbound.UserHistoryPort;
 import com.finstream.domain.service.PiiRedactor;
 import com.finstream.domain.service.RuleGateService;
 import com.finstream.domain.model.FraudEvaluationConfig;
-import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
+import com.finstream.testsupport.TracerTestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,12 +70,7 @@ class FraudEvaluationUseCaseImplTest {
     @BeforeEach
     void setUp() {
         RuleGateService ruleGateService = new RuleGateService(AMOUNT_THRESHOLD, VELOCITY_LIMIT);
-        Span span = org.mockito.Mockito.mock(Span.class);
-        Tracer.SpanInScope scope = org.mockito.Mockito.mock(Tracer.SpanInScope.class);
-        org.mockito.Mockito.when(tracer.nextSpan()).thenReturn(span);
-        org.mockito.Mockito.when(span.name(org.mockito.ArgumentMatchers.anyString())).thenReturn(span);
-        org.mockito.Mockito.when(span.start()).thenReturn(span);
-        org.mockito.Mockito.when(tracer.withSpan(org.mockito.ArgumentMatchers.any())).thenReturn(scope);
+        TracerTestUtils.stubTracer(tracer);
         useCase = new FraudEvaluationUseCaseImpl(
                 ruleGateService, userHistoryPort, embeddingStorePort,
                 llmFraudAnalysisPort, piiRedactor, CONFIG, tracer, TEST_CLOCK);

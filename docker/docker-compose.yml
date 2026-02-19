@@ -74,6 +74,11 @@ services:
     ports:
       - "16686:16686"
       - "4318:4318"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 volumes:
   postgres_data:

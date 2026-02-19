@@ -7,7 +7,7 @@
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)
 ![Kafka](https://img.shields.io/badge/Kafka-Event--Driven-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)
-![Tests](https://img.shields.io/badge/Tests-114%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-118%20passing-brightgreen)
 ![Architecture](https://img.shields.io/badge/Architecture-Hexagonal-purple)
 
 ---
@@ -16,7 +16,7 @@
 
 Real-time fraud detection requires sub-50ms latency. Introducing LLMs (RAG) typically adds 500ms+. This project demonstrates how to decouple high-throughput transaction processing from AI-based audit analysis using event-driven architecture, Virtual Threads, and Scoped Values — built on Java 25 and Spring Boot 4.0.
 
-The system is being developed in iterative phases. **Phase 1 (core pipeline)** and **Phase 2 (AI-powered fraud analysis)** are complete and fully tested. Phase 3 added OAuth2 security; observability (OpenTelemetry) is planned next.
+The system is being developed in iterative phases. **Phase 1 (core pipeline)** and **Phase 2 (AI-powered fraud analysis)** are complete and fully tested. Phase 3 added OAuth2 security and distributed tracing (OpenTelemetry).
 
 ---
 
@@ -83,7 +83,7 @@ The system is fully operational with an event-driven core, AI-powered fraud anal
 - **Transactional Outbox + CDC** — Debezium eliminates dual-write inconsistencies
 - **PII Redaction** — Irreversible SHA-256 hashing + regex scrubbing
 - **Resilience** — Circuit breakers (Resilience4j)
-- **114 tests** — Architecture, integration, property-based, and security tests
+- **118 tests** — Architecture, integration, property-based, and security tests
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for remaining Phase 3 plans (Observability, Performance).
 
@@ -226,7 +226,7 @@ docker compose -f docker/docker-compose.yml down
 ./gradlew check
 ```
 
-All 114 tests pass, covering:
+All 118 tests pass, covering:
 - **Security** — OAuth2 integration, 401/403 handling
 - **Architecture** — ArchUnit enforces hexagonal boundaries
 - **Integration** — Testcontainers with real Kafka and PostgreSQL (Outbox, RAG, Debezium)
