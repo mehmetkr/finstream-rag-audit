@@ -1,8 +1,8 @@
 package com.finstream.infrastructure.adapters.messaging;
 
 import com.finstream.infrastructure.adapters.persistence.TransactionJpaRepository;
-import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
+import com.finstream.testsupport.TracerTestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
@@ -50,12 +50,7 @@ class KafkaIntegrationTest {
 
     @BeforeEach
     void setUpTracer() {
-        Span span = org.mockito.Mockito.mock(Span.class);
-        Tracer.SpanInScope scope = org.mockito.Mockito.mock(Tracer.SpanInScope.class);
-        org.mockito.Mockito.when(tracer.nextSpan()).thenReturn(span);
-        org.mockito.Mockito.when(span.name(org.mockito.ArgumentMatchers.anyString())).thenReturn(span);
-        org.mockito.Mockito.when(span.start()).thenReturn(span);
-        org.mockito.Mockito.when(tracer.withSpan(org.mockito.ArgumentMatchers.any())).thenReturn(scope);
+        TracerTestUtils.stubTracer(tracer);
     }
 
     @Test
