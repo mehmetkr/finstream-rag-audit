@@ -6,8 +6,8 @@ import com.finstream.domain.model.Transaction;
 import com.finstream.domain.model.ids.AccountId;
 import com.finstream.domain.model.ids.TransactionId;
 import com.finstream.domain.ports.outbound.EmbeddingStorePort;
-import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
+import com.finstream.testsupport.TracerTestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,12 +53,7 @@ class EmbeddingIntegrationTest {
 
     @BeforeEach
     void setUpTracer() {
-        Span span = org.mockito.Mockito.mock(Span.class);
-        Tracer.SpanInScope scope = org.mockito.Mockito.mock(Tracer.SpanInScope.class);
-        org.mockito.Mockito.when(tracer.nextSpan()).thenReturn(span);
-        org.mockito.Mockito.when(span.name(org.mockito.ArgumentMatchers.anyString())).thenReturn(span);
-        org.mockito.Mockito.when(span.start()).thenReturn(span);
-        org.mockito.Mockito.when(tracer.withSpan(org.mockito.ArgumentMatchers.any())).thenReturn(scope);
+        TracerTestUtils.stubTracer(tracer);
     }
 
     @Test
