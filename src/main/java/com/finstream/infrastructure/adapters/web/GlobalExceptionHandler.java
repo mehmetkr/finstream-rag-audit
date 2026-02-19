@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +17,11 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private final Clock clock;
+
+    public GlobalExceptionHandler(Clock clock) {
+        this.clock = clock;
+    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
@@ -24,7 +30,7 @@ public class GlobalExceptionHandler {
                 "status", 400,
                 "error", "Bad Request",
                 "message", ex.getMessage(),
-                "timestamp", Instant.now().toString()
+                "timestamp", Instant.now(clock).toString()
         ));
     }
 
@@ -38,7 +44,7 @@ public class GlobalExceptionHandler {
                 "status", 400,
                 "error", "Validation Failed",
                 "messages", errors,
-                "timestamp", Instant.now().toString()
+                "timestamp", Instant.now(clock).toString()
         ));
     }
 
@@ -49,7 +55,7 @@ public class GlobalExceptionHandler {
                 "status", 500,
                 "error", "Internal Server Error",
                 "message", "An unexpected error occurred",
-                "timestamp", Instant.now().toString()
+                "timestamp", Instant.now(clock).toString()
         ));
     }
 }

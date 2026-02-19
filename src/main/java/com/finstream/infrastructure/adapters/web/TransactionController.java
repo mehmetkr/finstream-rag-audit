@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Currency;
 
@@ -21,9 +22,11 @@ import java.util.Currency;
 public class TransactionController {
 
     private final EvaluateTransactionUseCase evaluateTransactionUseCase;
+    private final Clock clock;
 
-    public TransactionController(EvaluateTransactionUseCase evaluateTransactionUseCase) {
+    public TransactionController(EvaluateTransactionUseCase evaluateTransactionUseCase, Clock clock) {
         this.evaluateTransactionUseCase = evaluateTransactionUseCase;
+        this.clock = clock;
     }
 
     @PostMapping
@@ -34,7 +37,7 @@ public class TransactionController {
                 new AccountId(request.fromAccount()),
                 new AccountId(request.toAccount()),
                 request.description(),
-                Instant.now()
+                Instant.now(clock)
         );
 
         evaluateTransactionUseCase.submit(transaction);

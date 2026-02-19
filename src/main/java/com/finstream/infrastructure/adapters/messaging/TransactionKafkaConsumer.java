@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Currency;
 import java.util.UUID;
@@ -36,17 +37,20 @@ public class TransactionKafkaConsumer {
     private final FraudEvaluationUseCase fraudEvaluationUseCase;
     private final EventPublisherPort eventPublisher;
     private final ObjectMapper objectMapper;
+    private final Clock clock;
 
     public TransactionKafkaConsumer(TransactionRepository repository,
                                     EmbeddingStorePort embeddingStore,
                                     FraudEvaluationUseCase fraudEvaluationUseCase,
                                     EventPublisherPort eventPublisher,
-                                    ObjectMapper objectMapper) {
+                                    ObjectMapper objectMapper,
+                                    Clock clock) {
         this.repository = repository;
         this.embeddingStore = embeddingStore;
         this.fraudEvaluationUseCase = fraudEvaluationUseCase;
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
+        this.clock = clock;
     }
 
     @Transactional
@@ -75,7 +79,7 @@ public class TransactionKafkaConsumer {
                 log.info("[{}] Persisted and embedded transaction: {}", traceId, transaction.id().value());
 
                 FraudDecision decision = fraudEvaluationUseCase.evaluate(transaction);
-                var evaluated = new TransactionEvaluated(transaction, decision, Instant.now());
+                var evaluated = new TransactionEvaluated(transaction, decision, Instant.now(clock));
                 eventPublisher.publish(evaluated);
                 log.info("[{}] Evaluated transaction {}: {} (risk: {})",
                         traceId, transaction.id().value(), decision.decision(), decision.riskScore());
@@ -94,7 +98,7 @@ public class TransactionKafkaConsumer {
                 yield new TransactionReceived(
                         mapTransaction(dto.id(), dto.amount(), dto.currency(),
                                 dto.fromAccount(), dto.toAccount(), dto.description(), dto.occurredAt()),
-                        Instant.now());
+                        Instant.now(clock));
             }
             case "TransactionEvaluated" -> {
                 var dto = objectMapper.readValue(payload, TransactionEvaluatedEvent.class);
@@ -105,7 +109,7 @@ public class TransactionKafkaConsumer {
                 yield new TransactionEvaluated(
                         mapTransaction(dto.id(), dto.amount(), dto.currency(),
                                 dto.fromAccount(), dto.toAccount(), dto.description(), dto.occurredAt()),
-                        decision, Instant.now());
+                        decision, Instant.now(clock));
             }
             case null -> throw new IllegalArgumentException("Missing eventType header");
             default -> throw new IllegalArgumentException("Unknown event type: " + eventType);

@@ -13,15 +13,22 @@ import com.finstream.infrastructure.adapters.llm.StubLlmFraudAnalysisAdapter;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.micrometer.tracing.Tracer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Clock;
 import java.time.Duration;
 
 @Configuration
 @EnableConfigurationProperties(FraudEvaluationProperties.class)
 public class FraudEvaluationConfiguration {
+
+    @Bean
+    Clock clock() {
+        return Clock.systemUTC();
+    }
 
     @Bean
     RuleGateService ruleGateService(FraudEvaluationProperties properties) {
@@ -69,9 +76,11 @@ public class FraudEvaluationConfiguration {
                                                    EmbeddingStorePort embeddingStorePort,
                                                    LlmFraudAnalysisPort llmFraudAnalysisPort,
                                                    PiiRedactor piiRedactor,
-                                                   FraudEvaluationConfig config) {
+                                                   FraudEvaluationConfig config,
+                                                   Tracer tracer,
+                                                   Clock clock) {
         return new FraudEvaluationUseCaseImpl(
                 ruleGateService, userHistoryPort, embeddingStorePort,
-                llmFraudAnalysisPort, piiRedactor, config);
+                llmFraudAnalysisPort, piiRedactor, config, tracer, clock);
     }
 }

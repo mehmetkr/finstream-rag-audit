@@ -5,6 +5,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -19,7 +20,8 @@ class OutboxCleanupSchedulerTest {
 
     @Test
     void cleanup_should_delete_old_events() {
-        OutboxCleanupScheduler scheduler = new OutboxCleanupScheduler(repository, Duration.ofDays(7));
+        OutboxCleanupScheduler scheduler = new OutboxCleanupScheduler(
+                repository, Duration.ofDays(7), Clock.systemUTC());
         when(repository.deleteByCreatedAtBefore(any(Instant.class))).thenReturn(5);
 
         scheduler.cleanup();

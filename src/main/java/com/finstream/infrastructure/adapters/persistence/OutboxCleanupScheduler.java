@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -17,17 +18,20 @@ public class OutboxCleanupScheduler {
 
     private final OutboxJpaRepository outboxRepository;
     private final Duration retentionPeriod;
+    private final Clock clock;
 
     public OutboxCleanupScheduler(OutboxJpaRepository outboxRepository,
-                                   @Value("${finstream.outbox.retention:P7D}") Duration retentionPeriod) {
+                                   @Value("${finstream.outbox.retention:P7D}") Duration retentionPeriod,
+                                   Clock clock) {
         this.outboxRepository = outboxRepository;
         this.retentionPeriod = retentionPeriod;
+        this.clock = clock;
     }
 
     @Scheduled(cron = "${finstream.outbox.cleanup-cron:0 0 3 * * *}")
     @Transactional
     public void cleanup() {
-        Instant cutoff = Instant.now().minus(retentionPeriod);
+        Instant cutoff = Instant.now(clock).minus(retentionPeriod);
         int deleted = outboxRepository.deleteByCreatedAtBefore(cutoff);
         if (deleted > 0) {
             log.info("Outbox cleanup: deleted {} events older than {}", deleted, cutoff);

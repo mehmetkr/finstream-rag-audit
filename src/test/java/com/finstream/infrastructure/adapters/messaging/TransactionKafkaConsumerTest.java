@@ -15,7 +15,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -31,12 +33,13 @@ class TransactionKafkaConsumerTest {
 
     private TransactionKafkaConsumer consumer;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Clock clock = Clock.fixed(Instant.parse("2024-01-01T00:00:00Z"), ZoneOffset.UTC);
 
     @BeforeEach
     void setUp() {
         consumer = new TransactionKafkaConsumer(
                 repository, embeddingStore, fraudEvaluationUseCase,
-                eventPublisher, objectMapper);
+                eventPublisher, objectMapper, clock);
     }
 
     @Test
@@ -52,10 +55,10 @@ class TransactionKafkaConsumerTest {
                     "description": "Test",
                     "occurredAt": "%s"
                 }
-                """.formatted(id, Instant.now());
+                """.formatted(id, Instant.now(clock));
 
         when(fraudEvaluationUseCase.evaluate(any())).thenReturn(
-                new FraudDecision(FraudDecision.Decision.APPROVE, BigDecimal.TEN, "OK", Instant.now()));
+                new FraudDecision(FraudDecision.Decision.APPROVE, BigDecimal.TEN, "OK", Instant.now(clock)));
 
         consumer.handle(json, "TransactionReceived");
 
@@ -81,7 +84,7 @@ class TransactionKafkaConsumerTest {
                     "reasoning": "OK",
                     "evaluatedAt": "%s"
                 }
-                """.formatted(UUID.randomUUID(), Instant.now(), Instant.now());
+                """.formatted(UUID.randomUUID(), Instant.now(clock), Instant.now(clock));
 
         consumer.handle(json, "TransactionEvaluated");
 
