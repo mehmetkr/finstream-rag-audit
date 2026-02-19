@@ -73,11 +73,12 @@ Hexagonal (Ports & Adapters) architecture with an event-driven core. Domain logi
 ```
 ---
 
-## Current Status — Phase 3 In Progress (Security Complete)
+## Current Status — Phase 3 In Progress (Security & Observability Complete)
 
 The system is fully operational with an event-driven core, AI-powered fraud analysis, and production-grade security.
 
 - **Security** — OAuth 2.0 Resource Server with Keycloak (JWT authentication)
+- **Distributed Tracing** — OpenTelemetry via Micrometer + Jaeger (OTLP)
 - **Two-Phase Fraud Evaluation** — Fast rule gate (<5ms) followed by parallel RAG/LLM analysis
 - **LangChain4j RAG** — pgvector similarity search retrieves historical context
 - **Transactional Outbox + CDC** — Debezium eliminates dual-write inconsistencies
@@ -85,7 +86,7 @@ The system is fully operational with an event-driven core, AI-powered fraud anal
 - **Resilience** — Circuit breakers (Resilience4j)
 - **118 tests** — Architecture, integration, property-based, and security tests
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for remaining Phase 3 plans (Observability, Performance).
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for remaining Phase 3 plans (Dashboards, Performance).
 
 ---
 
@@ -111,7 +112,7 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md) for remaining Phase 3 plans (Observabil
 
 **AI & Data:** LangChain4j (RAG), PostgreSQL 16 + pgvector, Debezium (CDC)
 
-**Infrastructure:** Apache Kafka, Keycloak (Identity Provider), Flyway, Resilience4j
+**Infrastructure:** Apache Kafka, Keycloak (Identity Provider), Flyway, Resilience4j, Jaeger (Tracing)
 
 **Testing:** JUnit 5, Testcontainers 2.0, ArchUnit 1.4.1, jqwik 1.9.2, Awaitility
 
