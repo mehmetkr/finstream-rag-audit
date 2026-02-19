@@ -59,3 +59,13 @@ management:
     web:
       exposure:
         include: health,info,metrics
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
+
+otel:
+  service:
+    name: finstream-rag-audit

@@ -18,7 +18,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Currency;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,17 +33,21 @@ class OutboxEventPublisherAdapterTest {
 
     @Mock private OutboxJpaRepository outboxRepository;
 
+    private static final Clock TEST_CLOCK =
+            Clock.fixed(Instant.parse("2024-01-01T00:00:00Z"), ZoneOffset.UTC);
+
     private OutboxEventPublisherAdapter adapter;
 
     @BeforeEach
     void setUp() {
-        adapter = new OutboxEventPublisherAdapter(outboxRepository, new ObjectMapper());
+        adapter = new OutboxEventPublisherAdapter(
+                outboxRepository, new ObjectMapper(), TEST_CLOCK);
     }
 
     @Test
     void should_persist_outbox_row_for_transaction_received() {
         Transaction tx = testTransaction();
-        var event = new TransactionReceived(tx, Instant.now());
+        var event = new TransactionReceived(tx, Instant.now(TEST_CLOCK));
 
         when(outboxRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -63,8 +69,8 @@ class OutboxEventPublisherAdapterTest {
     void should_persist_outbox_row_for_transaction_evaluated() {
         Transaction tx = testTransaction();
         var decision = new FraudDecision(
-                FraudDecision.Decision.APPROVE, BigDecimal.TEN, "Low risk", Instant.now());
-        var event = new TransactionEvaluated(tx, decision, Instant.now());
+                FraudDecision.Decision.APPROVE, BigDecimal.TEN, "Low risk", Instant.now(TEST_CLOCK));
+        var event = new TransactionEvaluated(tx, decision, Instant.now(TEST_CLOCK));
 
         when(outboxRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -84,7 +90,7 @@ class OutboxEventPublisherAdapterTest {
     @Test
     void should_set_aggregate_id_to_transaction_id() {
         Transaction tx = testTransaction();
-        var event = new TransactionReceived(tx, Instant.now());
+        var event = new TransactionReceived(tx, Instant.now(TEST_CLOCK));
 
         when(outboxRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -104,7 +110,7 @@ class OutboxEventPublisherAdapterTest {
                 new AccountId("GB1234567890"),
                 new AccountId("US9876543210"),
                 "Test payment",
-                Instant.now()
+                Instant.now(TEST_CLOCK)
         );
     }
 }

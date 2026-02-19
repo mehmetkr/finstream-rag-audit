@@ -14,11 +14,14 @@ import com.finstream.domain.ports.outbound.LlmFraudAnalysisPort;
 import com.finstream.domain.ports.outbound.UserHistoryPort;
 import com.finstream.domain.service.PiiRedactor;
 import com.finstream.domain.service.RuleGateService;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -37,38 +40,54 @@ public class FraudEvaluationUseCaseImpl implements FraudEvaluationUseCase {
     private final LlmFraudAnalysisPort llmFraudAnalysisPort;
     private final PiiRedactor piiRedactor;
     private final FraudEvaluationConfig config;
+    private final Tracer tracer;
+    private final Clock clock;
 
     public FraudEvaluationUseCaseImpl(RuleGateService ruleGateService,
                                        UserHistoryPort userHistoryPort,
                                        EmbeddingStorePort embeddingStorePort,
                                        LlmFraudAnalysisPort llmFraudAnalysisPort,
                                        PiiRedactor piiRedactor,
-                                       FraudEvaluationConfig config) {
+                                       FraudEvaluationConfig config,
+                                       Tracer tracer,
+                                       Clock clock) {
         this.ruleGateService = ruleGateService;
         this.userHistoryPort = userHistoryPort;
         this.embeddingStorePort = embeddingStorePort;
         this.llmFraudAnalysisPort = llmFraudAnalysisPort;
         this.piiRedactor = piiRedactor;
         this.config = config;
+        this.tracer = tracer;
+        this.clock = clock;
     }
 
     @Override
     public FraudDecision evaluate(Transaction transaction) {
-        // Phase 1: synchronous rule gate
-        Instant velocitySince = Instant.now().minus(config.velocityWindow());
-        int recentCount = userHistoryPort.countRecentTransactions(
-                transaction.fromAccount(), velocitySince);
-        RuleGateResult gateResult = ruleGateService.evaluate(transaction, recentCount);
+        Span span = tracer.nextSpan().name("fraud.evaluate").start();
+        span.tag("transaction.id", transaction.id().value().toString());
+        span.tag("transaction.amount", transaction.amount().value().toPlainString());
+        try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
+            // Phase 1: synchronous rule gate
+            Instant velocitySince = Instant.now(clock).minus(config.velocityWindow());
+            int recentCount = userHistoryPort.countRecentTransactions(
+                    transaction.fromAccount(), velocitySince);
+            RuleGateResult gateResult = ruleGateService.evaluate(transaction, recentCount);
 
-        log.info("Rule gate for {}: {} — {}",
-                transaction.id().value(), gateResult.decision(), gateResult.reason());
+            log.info("Rule gate for {}: {} — {}",
+                    transaction.id().value(), gateResult.decision(), gateResult.reason());
 
-        // Early return for definitive decisions
-        return switch (gateResult.decision()) {
-            case APPROVE -> toDecision(gateResult, "Rule gate: approved");
-            case BLOCK -> toDecision(gateResult, "Rule gate: " + gateResult.reason());
-            case FLAG -> evaluatePhaseTwo(transaction, gateResult);
-        };
+            // Early return for definitive decisions
+            return switch (gateResult.decision()) {
+                case APPROVE -> toDecision(gateResult, "Rule gate: approved");
+                case BLOCK -> toDecision(gateResult, "Rule gate: " + gateResult.reason());
+                case FLAG -> evaluatePhaseTwo(transaction, gateResult);
+            };
+        } catch (RuntimeException ex) {
+            span.error(ex);
+            throw ex;
+        } finally {
+            span.end();
+        }
     }
 
     /**
@@ -83,7 +102,17 @@ public class FraudEvaluationUseCaseImpl implements FraudEvaluationUseCase {
             // Fan-out: RAG similarity search
             CompletableFuture<Optional<List<ScoredTransaction>>> ragFuture =
                     CompletableFuture.supplyAsync(
-                            () -> embeddingStorePort.findSimilar(transaction, config.ragMaxResults()),
+                            () -> {
+                                Span span = tracer.nextSpan().name("fraud.rag").start();
+                                try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
+                                    return embeddingStorePort.findSimilar(transaction, config.ragMaxResults());
+                                } catch (RuntimeException ex) {
+                                    span.error(ex);
+                                    throw ex;
+                                } finally {
+                                    span.end();
+                                }
+                            },
                             executor
                     ).handle((result, ex) -> {
                         if (ex != null) {
@@ -96,8 +125,18 @@ public class FraudEvaluationUseCaseImpl implements FraudEvaluationUseCase {
             // Fan-out: user history
             CompletableFuture<Optional<List<Transaction>>> historyFuture =
                     CompletableFuture.supplyAsync(
-                            () -> userHistoryPort.findRecentTransactions(
-                                    transaction.fromAccount(), config.historyLimit()),
+                            () -> {
+                                Span span = tracer.nextSpan().name("fraud.history").start();
+                                try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
+                                    return userHistoryPort.findRecentTransactions(
+                                            transaction.fromAccount(), config.historyLimit());
+                                } catch (RuntimeException ex) {
+                                    span.error(ex);
+                                    throw ex;
+                                } finally {
+                                    span.end();
+                                }
+                            },
                             executor
                     ).handle((result, ex) -> {
                         if (ex != null) {
@@ -115,7 +154,18 @@ public class FraudEvaluationUseCaseImpl implements FraudEvaluationUseCase {
                     ragFuture.thenComposeAsync(ragOpt -> {
                         List<ScoredTransaction> similar = ragOpt.orElse(List.of());
                         return CompletableFuture.supplyAsync(
-                                () -> llmFraudAnalysisPort.analyze(redacted, similar),
+                                () -> {
+                                    Span span = tracer.nextSpan().name("fraud.llm").start();
+                                    try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
+                                        span.tag("rag.similar.count", String.valueOf(similar.size()));
+                                        return llmFraudAnalysisPort.analyze(redacted, similar);
+                                    } catch (RuntimeException ex) {
+                                        span.error(ex);
+                                        throw ex;
+                                    } finally {
+                                        span.end();
+                                    }
+                                },
                                 executor
                         ).orTimeout(5, TimeUnit.SECONDS);
                     }, executor).handle((result, ex) -> {
@@ -166,7 +216,7 @@ public class FraudEvaluationUseCaseImpl implements FraudEvaluationUseCase {
         String reasoning = buildReasoning(gateResult, llmOpt, historyOpt, clampedScore);
 
         log.info("Aggregated score for {}: {} → {}", transaction.id().value(), clampedScore, decision);
-        return new FraudDecision(decision, clampedScore, reasoning, Instant.now());
+        return new FraudDecision(decision, clampedScore, reasoning, Instant.now(clock));
     }
 
     private BigDecimal computeHistoryRiskContribution(List<Transaction> history, Transaction current) {
@@ -212,12 +262,12 @@ public class FraudEvaluationUseCaseImpl implements FraudEvaluationUseCase {
         return sb.toString();
     }
 
-    private static FraudDecision toDecision(RuleGateResult gateResult, String reasoning) {
+    private FraudDecision toDecision(RuleGateResult gateResult, String reasoning) {
         Decision decision = switch (gateResult.decision()) {
             case APPROVE -> Decision.APPROVE;
             case FLAG -> Decision.FLAG;
             case BLOCK -> Decision.BLOCK;
         };
-        return new FraudDecision(decision, gateResult.baselineRiskScore(), reasoning, Instant.now());
+        return new FraudDecision(decision, gateResult.baselineRiskScore(), reasoning, Instant.now(clock));
     }
 }

@@ -1,12 +1,16 @@
 package com.finstream.infrastructure.adapters.messaging;
 
 import com.finstream.infrastructure.adapters.persistence.TransactionJpaRepository;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
+import org.junit.jupiter.api.BeforeEach;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -41,6 +45,18 @@ class KafkaIntegrationTest {
 
     @Autowired
     private TransactionJpaRepository transactionRepository;
+    @MockitoBean
+    private Tracer tracer;
+
+    @BeforeEach
+    void setUpTracer() {
+        Span span = org.mockito.Mockito.mock(Span.class);
+        Tracer.SpanInScope scope = org.mockito.Mockito.mock(Tracer.SpanInScope.class);
+        org.mockito.Mockito.when(tracer.nextSpan()).thenReturn(span);
+        org.mockito.Mockito.when(span.name(org.mockito.ArgumentMatchers.anyString())).thenReturn(span);
+        org.mockito.Mockito.when(span.start()).thenReturn(span);
+        org.mockito.Mockito.when(tracer.withSpan(org.mockito.ArgumentMatchers.any())).thenReturn(scope);
+    }
 
     @Test
     void should_consume_valid_transaction_event_and_persist() {

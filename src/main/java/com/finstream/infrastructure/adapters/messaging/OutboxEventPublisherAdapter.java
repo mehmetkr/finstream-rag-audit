@@ -13,6 +13,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 
 @Component
@@ -23,11 +24,14 @@ public class OutboxEventPublisherAdapter implements EventPublisherPort {
 
     private final OutboxJpaRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final Clock clock;
 
     public OutboxEventPublisherAdapter(OutboxJpaRepository outboxRepository,
-                                        ObjectMapper objectMapper) {
+                                        ObjectMapper objectMapper,
+                                        Clock clock) {
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
+        this.clock = clock;
     }
 
     @Override
@@ -70,7 +74,7 @@ public class OutboxEventPublisherAdapter implements EventPublisherPort {
             entity.setAggregateId(event.transactionId().value().toString());
             entity.setEventType(eventType);
             entity.setPayload(payload);
-            entity.setCreatedAt(Instant.now());
+            entity.setCreatedAt(Instant.now(clock));
 
             outboxRepository.save(entity);
             log.info("Outbox: wrote {} for transaction {}", eventType, event.transactionId().value());

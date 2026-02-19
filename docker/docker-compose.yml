@@ -69,5 +69,11 @@ services:
       timeout: 5s
       retries: 5
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+
 volumes:
   postgres_data:
