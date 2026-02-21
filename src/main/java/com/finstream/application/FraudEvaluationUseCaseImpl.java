@@ -14,6 +14,7 @@ import com.finstream.domain.ports.outbound.LlmFraudAnalysisPort;
 import com.finstream.domain.ports.outbound.UserHistoryPort;
 import com.finstream.domain.service.PiiRedactor;
 import com.finstream.domain.service.RuleGateService;
+import com.finstream.infrastructure.observability.TracedRagOperation;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import org.slf4j.Logger;
@@ -62,6 +63,7 @@ public class FraudEvaluationUseCaseImpl implements FraudEvaluationUseCase {
     }
 
     @Override
+    @TracedRagOperation
     public FraudDecision evaluate(Transaction transaction) {
         Span span = tracer.nextSpan().name("fraud.evaluate").start();
         span.tag("transaction.id", transaction.id().value().toString());
