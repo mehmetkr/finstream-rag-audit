@@ -13,6 +13,9 @@ import java.util.List;
 
 public class StubLlmFraudAnalysisAdapter implements LlmFraudAnalysisPort {
 
+    // TODO: When replacing this stub with a real ChatLanguageModel (e.g. OpenAiChatModel),
+    // ensure to register LlmTracingListener to enable OpenTelemetry observability.
+
     private static final Logger log = LoggerFactory.getLogger(StubLlmFraudAnalysisAdapter.class);
     private static final BigDecimal AMOUNT_SCALE_FACTOR = BigDecimal.valueOf(200);
     private static final BigDecimal MAX_SCORE = BigDecimal.valueOf(100);
