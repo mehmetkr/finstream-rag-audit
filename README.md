@@ -73,6 +73,48 @@ Hexagonal (Ports & Adapters) architecture with an event-driven core. Domain logi
 ```
 ---
 
+## Observability
+
+### Architecture
+
+FinStream-RAG-Audit uses OpenTelemetry for distributed tracing, exported to
+[Langfuse](https://langfuse.com) for LLM-specific observability. Every RAG
+pipeline execution produces a trace with nested spans:
+
+```
+rag.query (parent span)
+├── rag.embedding       → vector generation via OpenAI text-embedding-3-small
+├── rag.retrieval       → pgvector similarity search with result count
+└── gen_ai.chat.completion → LLM generation with token usage and cost
+```
+
+Each span records:
+- **Token usage**: input tokens, output tokens, total tokens
+- **Cost attribution**: USD cost per call based on model pricing
+- **Business context**: audit ID, document type, pipeline stage
+- **Error tracking**: exceptions, error messages, stack traces
+
+### Setup
+
+1. Sign up at [Langfuse Cloud](https://cloud.langfuse.com) (free tier available)
+2. Create a project and copy your API keys
+3. Configure environment variables (or `.env` file):
+   ```bash
+   export LANGFUSE_PUBLIC_KEY=pk-lf-...
+   export LANGFUSE_SECRET_KEY=sk-lf-...
+   export LANGFUSE_AUTH_BASE64=$(echo -n "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" | base64)
+   ```
+4. Set `langfuse.enabled=true` in your application profile
+5. Run the application and trigger a query — traces appear in the Langfuse dashboard
+
+### Cost Tracking
+
+Token costs are calculated per-request and recorded as span attributes. The
+Langfuse Analytics dashboard aggregates costs by time period, model, and
+custom dimensions (audit ID, document type).
+
+---
+
 ## Current Status — Phase 3 In Progress (Security & Observability Complete)
 
 The system is fully operational with an event-driven core, AI-powered fraud analysis, and production-grade security.
