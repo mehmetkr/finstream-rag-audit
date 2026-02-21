@@ -5,12 +5,18 @@ import com.finstream.domain.model.Transaction;
 import com.finstream.domain.model.ids.TransactionId;
 import com.finstream.domain.ports.outbound.EmbeddingStorePort;
 import com.finstream.domain.ports.outbound.TransactionRepository;
+import com.finstream.infrastructure.observability.AuditTraceContext;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingStore;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -28,13 +34,16 @@ public class PgVectorEmbeddingAdapter implements EmbeddingStorePort {
     private final EmbeddingModel embeddingModel;
     private final EmbeddingStore<TextSegment> embeddingStore;
     private final TransactionRepository transactionRepository;
+    private final Tracer tracer;
 
     public PgVectorEmbeddingAdapter(EmbeddingModel embeddingModel,
                                      EmbeddingStore<TextSegment> embeddingStore,
-                                     TransactionRepository transactionRepository) {
+                                     TransactionRepository transactionRepository,
+                                     OpenTelemetry openTelemetry) {
         this.embeddingModel = embeddingModel;
         this.embeddingStore = embeddingStore;
         this.transactionRepository = transactionRepository;
+        this.tracer = openTelemetry.getTracer("finstream-rag-audit");
     }
 
     @Override
@@ -50,30 +59,52 @@ public class PgVectorEmbeddingAdapter implements EmbeddingStorePort {
 
     @Override
     public List<ScoredTransaction> findSimilar(Transaction transaction, int maxResults) {
-        String text = toTextRepresentation(transaction);
-        Embedding queryEmbedding = embeddingModel.embed(text).content();
+        Span span = tracer.spanBuilder("rag.retrieval")
+                .setAttribute("rag.store.type", "pgvector")
+                .startSpan();
 
-        var request = EmbeddingSearchRequest.builder()
-                .queryEmbedding(queryEmbedding)
-                .maxResults(maxResults)
-                .minScore(0.0)
-                .build();
+        // Apply business context if available
+        AuditTraceContext ctx = AuditTraceContext.getCurrent();
+        if (ctx != null) {
+            ctx.applyToSpan(span);
+        }
 
-        List<EmbeddingMatch<TextSegment>> matches = embeddingStore.search(request).matches();
+        try (Scope scope = span.makeCurrent()) {
+            String text = toTextRepresentation(transaction);
+            Embedding queryEmbedding = embeddingModel.embed(text).content();
 
-        List<TransactionId> ids = matches.stream()
-                .map(match -> new TransactionId(UUID.fromString(match.embeddingId())))
-                .toList();
+            var request = EmbeddingSearchRequest.builder()
+                    .queryEmbedding(queryEmbedding)
+                    .maxResults(maxResults)
+                    .minScore(0.0)
+                    .build();
 
-        Map<UUID, Transaction> transactionMap = transactionRepository.findAllByIds(ids).stream()
-                .collect(Collectors.toMap(tx -> tx.id().value(), tx -> tx));
+            List<EmbeddingMatch<TextSegment>> matches = embeddingStore.search(request).matches();
 
-        return matches.stream()
-                .filter(match -> transactionMap.containsKey(UUID.fromString(match.embeddingId())))
-                .map(match -> new ScoredTransaction(
-                        transactionMap.get(UUID.fromString(match.embeddingId())),
-                        match.score()))
-                .toList();
+            List<TransactionId> ids = matches.stream()
+                    .map(match -> new TransactionId(UUID.fromString(match.embeddingId())))
+                    .toList();
+
+            Map<UUID, Transaction> transactionMap = transactionRepository.findAllByIds(ids).stream()
+                    .collect(Collectors.toMap(tx -> tx.id().value(), tx -> tx));
+
+            List<ScoredTransaction> results = matches.stream()
+                    .filter(match -> transactionMap.containsKey(UUID.fromString(match.embeddingId())))
+                    .map(match -> new ScoredTransaction(
+                            transactionMap.get(UUID.fromString(match.embeddingId())),
+                            match.score()))
+                    .toList();
+
+            span.setAttribute("rag.results.count", results.size());
+            span.setStatus(StatusCode.OK);
+            return results;
+        } catch (Exception e) {
+            span.recordException(e);
+            span.setStatus(StatusCode.ERROR, e.getMessage());
+            throw e;
+        } finally {
+            span.end();
+        }
     }
 
     static String toTextRepresentation(Transaction transaction) {
