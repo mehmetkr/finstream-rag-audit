@@ -36,8 +36,11 @@ public class LlmTracingListener implements ChatModelListener {
         Span span = tracer.spanBuilder("gen_ai.chat.completion")
                 .setAttribute("gen_ai.system", "openai")
                 .setAttribute("gen_ai.request.model", params.modelName() != null ? params.modelName() : "unknown")
-                .setAttribute("gen_ai.request.max_tokens", params.maxOutputTokens() != null ? params.maxOutputTokens() : 0)
                 .startSpan();
+
+        if (params.maxOutputTokens() != null) {
+            span.setAttribute("gen_ai.request.max_tokens", params.maxOutputTokens());
+        }
 
         if (params.temperature() != null) {
             span.setAttribute("gen_ai.request.temperature", params.temperature());

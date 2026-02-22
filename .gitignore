@@ -21,4 +21,4 @@ Thumbs.db
 
 # jqwik
 .jqwik-database
-*.md:Zone.Identifier
+*:Zone.Identifier

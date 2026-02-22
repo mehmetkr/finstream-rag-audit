@@ -7,10 +7,13 @@ import io.opentelemetry.api.trace.Span;
  * Stored in a ThreadLocal so all spans within a request can access it.
  *
  * IMPORTANT: Always call clear() in a finally block to prevent ThreadLocal leaks.
+ *
+ * Uses InheritableThreadLocal so virtual threads spawned via
+ * CompletableFuture.supplyAsync inherit the context from their parent thread.
  */
 public class AuditTraceContext {
 
-    private static final ThreadLocal<AuditTraceContext> CURRENT = new ThreadLocal<>();
+    private static final InheritableThreadLocal<AuditTraceContext> CURRENT = new InheritableThreadLocal<>();
 
     private final String auditId;
     private final String documentType;
