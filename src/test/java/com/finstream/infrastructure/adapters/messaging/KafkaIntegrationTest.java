@@ -1,8 +1,8 @@
 package com.finstream.infrastructure.adapters.messaging;
 
 import com.finstream.infrastructure.adapters.persistence.TransactionJpaRepository;
-import io.micrometer.tracing.Tracer;
 import com.finstream.testsupport.TracerTestUtils;
+import io.opentelemetry.api.OpenTelemetry;
 import org.junit.jupiter.api.BeforeEach;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
@@ -46,11 +46,11 @@ class KafkaIntegrationTest {
     @Autowired
     private TransactionJpaRepository transactionRepository;
     @MockitoBean
-    private Tracer tracer;
+    private OpenTelemetry openTelemetry;
 
     @BeforeEach
     void setUpTracer() {
-        TracerTestUtils.stubTracer(tracer);
+        TracerTestUtils.stubOpenTelemetry(openTelemetry);
     }
 
     @Test

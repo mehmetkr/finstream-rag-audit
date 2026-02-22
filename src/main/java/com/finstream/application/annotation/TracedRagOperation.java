@@ -1,4 +1,4 @@
-package com.finstream.infrastructure.observability;
+package com.finstream.application.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

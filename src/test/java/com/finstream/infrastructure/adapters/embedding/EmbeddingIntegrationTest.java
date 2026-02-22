@@ -6,8 +6,8 @@ import com.finstream.domain.model.Transaction;
 import com.finstream.domain.model.ids.AccountId;
 import com.finstream.domain.model.ids.TransactionId;
 import com.finstream.domain.ports.outbound.EmbeddingStorePort;
-import io.micrometer.tracing.Tracer;
 import com.finstream.testsupport.TracerTestUtils;
+import io.opentelemetry.api.OpenTelemetry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,11 +49,11 @@ class EmbeddingIntegrationTest {
     @Autowired
     private com.finstream.domain.ports.outbound.TransactionRepository transactionRepository;
     @MockitoBean
-    private Tracer tracer;
+    private OpenTelemetry openTelemetry;
 
     @BeforeEach
     void setUpTracer() {
-        TracerTestUtils.stubTracer(tracer);
+        TracerTestUtils.stubOpenTelemetry(openTelemetry);
     }
 
     @Test

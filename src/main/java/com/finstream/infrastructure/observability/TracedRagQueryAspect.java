@@ -25,7 +25,7 @@ public class TracedRagQueryAspect {
         this.tracer = openTelemetry.getTracer("finstream-rag-audit");
     }
 
-    @Around("@annotation(com.finstream.infrastructure.observability.TracedRagOperation)")
+    @Around("@annotation(com.finstream.application.annotation.TracedRagOperation)")
     public Object traceRagQuery(ProceedingJoinPoint joinPoint) throws Throwable {
         Span span = tracer.spanBuilder("rag.query")
                 .setAttribute("rag.pipeline", "finstream-audit")

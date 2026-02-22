@@ -1,7 +1,8 @@
 package com.finstream.testsupport;
 
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.Tracer;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -20,5 +21,11 @@ public final class TracerTestUtils {
         when(span.name(anyString())).thenReturn(span);
         when(span.start()).thenReturn(span);
         when(tracer.withSpan(any(Span.class))).thenReturn(scope);
+    }
+
+    public static void stubOpenTelemetry(OpenTelemetry openTelemetry) {
+        Tracer tracer = mock(Tracer.class);
+        when(openTelemetry.getTracer(anyString())).thenReturn(tracer);
+        stubTracer(tracer);
     }
 }

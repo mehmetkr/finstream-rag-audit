@@ -9,8 +9,8 @@ import com.finstream.domain.ports.outbound.EventPublisherPort;
 import com.finstream.infrastructure.adapters.persistence.OutboxJpaRepository;
 import com.finstream.infrastructure.adapters.persistence.TransactionJpaRepository;
 import com.finstream.infrastructure.adapters.persistence.entity.TransactionEntity;
-import io.micrometer.tracing.Tracer;
 import com.finstream.testsupport.TracerTestUtils;
+import io.opentelemetry.api.OpenTelemetry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,11 +55,11 @@ class OutboxIntegrationTest {
     @Autowired
     private OutboxJpaRepository outboxRepository;
     @MockitoBean
-    private Tracer tracer;
+    private OpenTelemetry openTelemetry;
 
     @BeforeEach
     void setUpTracer() {
-        TracerTestUtils.stubTracer(tracer);
+        TracerTestUtils.stubOpenTelemetry(openTelemetry);
     }
 
     @Test
