@@ -9,6 +9,9 @@ import org.springframework.context.annotation.Bean;
  * No-op tracers produce no-op spans that safely accept all attribute/status calls.
  * This avoids the timing issue where @MockitoBean creates an unstubbed mock
  * before @BeforeEach can configure it, causing NPEs in bean constructors.
+ *
+ * <p>The main {@code ObservabilityConfiguration} derives the OTel {@code Tracer}
+ * bean from this no-op {@code OpenTelemetry}, so no separate test Tracer is needed.
  */
 @TestConfiguration
 public class NoopOpenTelemetryConfig {

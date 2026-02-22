@@ -8,7 +8,9 @@ import java.util.Map;
  *
  * Update prices when model pricing changes. Source: https://openai.com/pricing
  */
-public class ModelCostCalculator {
+public final class ModelCostCalculator {
+
+    private ModelCostCalculator() {}
 
     public record ModelPricing(double inputPer1kTokens, double outputPer1kTokens) {}
 
@@ -37,7 +39,7 @@ public class ModelCostCalculator {
         if (pricing == null) {
             // Try matching with prefix (handles versioned model names like "gpt-4o-2024-08-06")
             pricing = PRICING.entrySet().stream()
-                    .filter(e -> modelName != null && modelName.startsWith(e.getKey()))
+                    .filter(e -> modelName.startsWith(e.getKey()))
                     .map(Map.Entry::getValue)
                     .findFirst()
                     .orElse(null);

@@ -77,22 +77,23 @@ Hexagonal (Ports & Adapters) architecture with an event-driven core. Domain logi
 
 ### Architecture
 
-FinStream-RAG-Audit uses OpenTelemetry for distributed tracing, exported to
-[Langfuse](https://langfuse.com) for LLM-specific observability. Every RAG
-pipeline execution produces a trace with nested spans:
+FinStream-RAG-Audit uses a two-layer tracing strategy exported via OTLP to
+[Langfuse](https://langfuse.com) (or any OTel-compatible backend such as Jaeger).
 
+**Micrometer spans** (application layer) — bridged to OTel by `micrometer-tracing-bridge-otel`:
 ```
-rag.query (parent span)
-├── rag.embedding       → vector generation via OpenAI text-embedding-3-small
-├── rag.retrieval       → pgvector similarity search with result count
-└── gen_ai.chat.completion → LLM generation with token usage and cost
+fraud.evaluate
+├── fraud.rag        → RAG similarity search
+├── fraud.history    → user history lookup
+└── fraud.llm       → LLM fraud analysis
 ```
 
-Each span records:
-- **Token usage**: input tokens, output tokens, total tokens
-- **Cost attribution**: USD cost per call based on model pricing
-- **Business context**: audit ID, document type, pipeline stage
-- **Error tracking**: exceptions, error messages, stack traces
+**OTel spans** (infrastructure layer) — created directly via `io.opentelemetry.api.trace.Tracer`:
+- `rag.embedding` — vector generation via local ONNX model (all-MiniLM-L6-v2)
+- `rag.retrieval` — pgvector similarity search with result count
+- `gen_ai.chat.completion` — LLM generation with token usage and cost (active when a real ChatLanguageModel replaces the heuristic stub)
+
+Each span records business context (audit ID, document type, pipeline stage), token usage, and error tracking as applicable.
 
 ### Setup
 
@@ -104,14 +105,14 @@ Each span records:
    export LANGFUSE_SECRET_KEY=sk-lf-...
    export LANGFUSE_AUTH_BASE64=$(echo -n "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" | base64)
    ```
-4. Set `langfuse.enabled=true` in your application profile
-5. Run the application and trigger a query — traces appear in the Langfuse dashboard
+4. Optionally set `OTEL_EXPORTER_OTLP_ENDPOINT` (default: `http://localhost:4318/v1/traces`)
+5. Run the application and trigger a transaction — traces appear in the Langfuse dashboard
 
 ### Cost Tracking
 
-Token costs are calculated per-request and recorded as span attributes. The
-Langfuse Analytics dashboard aggregates costs by time period, model, and
-custom dimensions (audit ID, document type).
+Token costs are calculated per-request via `ModelCostCalculator` and recorded as
+`gen_ai.usage.cost_usd` span attributes. This applies to remote API-based models;
+the local ONNX embedding model incurs zero cost.
 
 ---
 

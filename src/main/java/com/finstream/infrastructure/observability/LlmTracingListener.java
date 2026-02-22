@@ -5,19 +5,19 @@ import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.listener.ChatModelRequestContext;
 import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
 import dev.langchain4j.model.output.TokenUsage;
-import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
-import org.springframework.stereotype.Component;
 
 /**
  * OpenTelemetry tracing listener for all LangChain4j ChatModel invocations.
  * Creates spans following the OpenTelemetry GenAI semantic conventions.
  *
- * Span attributes follow: https://opentelemetry.io/docs/specs/semconv/gen-ai/
+ * <p>Not a Spring-managed bean. Register explicitly when wiring a real
+ * {@code ChatLanguageModel} (e.g., via {@code .listeners(List.of(listener))}).
+ *
+ * <p>Span attributes follow: <a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/">OTel GenAI Semantic Conventions</a>
  */
-@Component
 public class LlmTracingListener implements ChatModelListener {
 
     private static final String SPAN_KEY = "otel-span";
@@ -25,14 +25,17 @@ public class LlmTracingListener implements ChatModelListener {
 
     private final Tracer tracer;
 
-    public LlmTracingListener(OpenTelemetry openTelemetry) {
-        this.tracer = openTelemetry.getTracer("finstream-rag-audit");
+    public LlmTracingListener(Tracer tracer) {
+        this.tracer = tracer;
     }
 
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {
         var params = requestContext.chatRequest().parameters();
 
+        // Intentionally not calling span.makeCurrent(): the ChatModelListener lifecycle
+        // spans onRequest → onResponse/onError which may execute on different threads.
+        // The span is stored in the attributes map and retrieved by reference.
         Span span = tracer.spanBuilder("gen_ai.chat.completion")
                 .setAttribute("gen_ai.system", "openai")
                 .setAttribute("gen_ai.request.model", params.modelName() != null ? params.modelName() : "unknown")
@@ -69,13 +72,15 @@ public class LlmTracingListener implements ChatModelListener {
                 span.setAttribute("gen_ai.usage.output_tokens", usage.outputTokenCount());
                 span.setAttribute("gen_ai.usage.total_tokens", usage.totalTokenCount());
 
-                // Cost tracking
+                // Cost tracking — only emit when pricing is known
                 if (metadata.modelName() != null) {
                     double costUsd = ModelCostCalculator.calculateCost(
                             metadata.modelName(),
                             usage.inputTokenCount(),
                             usage.outputTokenCount());
-                    span.setAttribute("gen_ai.usage.cost_usd", costUsd);
+                    if (costUsd > 0.0) {
+                        span.setAttribute("gen_ai.usage.cost_usd", costUsd);
+                    }
                 }
             }
 

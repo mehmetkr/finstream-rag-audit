@@ -5,14 +5,12 @@ import com.finstream.domain.model.Transaction;
 import com.finstream.domain.model.ids.TransactionId;
 import com.finstream.domain.ports.outbound.EmbeddingStorePort;
 import com.finstream.domain.ports.outbound.TransactionRepository;
-import com.finstream.infrastructure.observability.AuditTraceContext;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingStore;
-import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
@@ -39,11 +37,11 @@ public class PgVectorEmbeddingAdapter implements EmbeddingStorePort {
     public PgVectorEmbeddingAdapter(EmbeddingModel embeddingModel,
                                      EmbeddingStore<TextSegment> embeddingStore,
                                      TransactionRepository transactionRepository,
-                                     OpenTelemetry openTelemetry) {
+                                     Tracer tracer) {
         this.embeddingModel = embeddingModel;
         this.embeddingStore = embeddingStore;
         this.transactionRepository = transactionRepository;
-        this.tracer = openTelemetry.getTracer("finstream-rag-audit");
+        this.tracer = tracer;
     }
 
     @Override
@@ -62,12 +60,6 @@ public class PgVectorEmbeddingAdapter implements EmbeddingStorePort {
         Span span = tracer.spanBuilder("rag.retrieval")
                 .setAttribute("rag.store.type", "pgvector")
                 .startSpan();
-
-        // Apply business context if available
-        AuditTraceContext ctx = AuditTraceContext.getCurrent();
-        if (ctx != null) {
-            ctx.applyToSpan(span);
-        }
 
         try (Scope scope = span.makeCurrent()) {
             String text = toTextRepresentation(transaction);

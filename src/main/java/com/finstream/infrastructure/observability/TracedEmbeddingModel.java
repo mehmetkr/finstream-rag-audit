@@ -4,7 +4,6 @@ import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
-import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
@@ -23,10 +22,10 @@ public class TracedEmbeddingModel implements EmbeddingModel {
     private final String modelName;
     private final String genAiSystem;
 
-    public TracedEmbeddingModel(EmbeddingModel delegate, OpenTelemetry openTelemetry,
+    public TracedEmbeddingModel(EmbeddingModel delegate, Tracer tracer,
                                  String modelName, String genAiSystem) {
         this.delegate = delegate;
-        this.tracer = openTelemetry.getTracer("finstream-rag-audit");
+        this.tracer = tracer;
         this.modelName = modelName;
         this.genAiSystem = genAiSystem;
     }
@@ -53,14 +52,6 @@ public class TracedEmbeddingModel implements EmbeddingModel {
             }
             if (response.tokenUsage() != null) {
                 span.setAttribute("gen_ai.usage.input_tokens", response.tokenUsage().inputTokenCount());
-
-                double costUsd = ModelCostCalculator.calculateCost(
-                        modelName,
-                        response.tokenUsage().inputTokenCount(),
-                        0);
-                if (costUsd > 0.0) {
-                    span.setAttribute("gen_ai.usage.cost_usd", costUsd);
-                }
             }
 
             span.setStatus(StatusCode.OK);
