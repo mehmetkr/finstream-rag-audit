@@ -13,6 +13,7 @@ import com.finstream.domain.ports.inbound.FraudEvaluationUseCase;
 import com.finstream.domain.ports.outbound.EmbeddingStorePort;
 import com.finstream.domain.ports.outbound.EventPublisherPort;
 import com.finstream.domain.ports.outbound.TransactionRepository;
+import com.finstream.infrastructure.observability.AuditTraceContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -75,14 +76,25 @@ public class TransactionKafkaConsumer {
         switch (event) {
             case TransactionReceived(var transaction, _) -> {
                 repository.save(transaction);
-                embeddingStore.store(transaction.id(), transaction);
-                log.info("[{}] Persisted and embedded transaction: {}", traceId, transaction.id().value());
 
-                FraudDecision decision = fraudEvaluationUseCase.evaluate(transaction);
-                var evaluated = new TransactionEvaluated(transaction, decision, Instant.now(clock));
-                eventPublisher.publish(evaluated);
-                log.info("[{}] Evaluated transaction {}: {} (risk: {})",
-                        traceId, transaction.id().value(), decision.decision(), decision.riskScore());
+                AuditTraceContext.setCurrent(new AuditTraceContext(
+                        transaction.id().value().toString(),
+                        "transaction",
+                        "fraud_evaluation"
+                ));
+
+                try {
+                    embeddingStore.store(transaction.id(), transaction);
+                    log.info("[{}] Persisted and embedded transaction: {}", traceId, transaction.id().value());
+
+                    FraudDecision decision = fraudEvaluationUseCase.evaluate(transaction);
+                    var evaluated = new TransactionEvaluated(transaction, decision, Instant.now(clock));
+                    eventPublisher.publish(evaluated);
+                    log.info("[{}] Evaluated transaction {}: {} (risk: {})",
+                            traceId, transaction.id().value(), decision.decision(), decision.riskScore());
+                } finally {
+                    AuditTraceContext.clear();
+                }
             }
             case TransactionEvaluated(var transaction, var decision, _) ->
                     log.info("[{}] Audit: transaction {} \u2014 {} (risk: {})",

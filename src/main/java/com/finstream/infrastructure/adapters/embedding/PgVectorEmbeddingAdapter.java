@@ -11,6 +11,10 @@ import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingStore;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -28,13 +32,16 @@ public class PgVectorEmbeddingAdapter implements EmbeddingStorePort {
     private final EmbeddingModel embeddingModel;
     private final EmbeddingStore<TextSegment> embeddingStore;
     private final TransactionRepository transactionRepository;
+    private final Tracer tracer;
 
     public PgVectorEmbeddingAdapter(EmbeddingModel embeddingModel,
                                      EmbeddingStore<TextSegment> embeddingStore,
-                                     TransactionRepository transactionRepository) {
+                                     TransactionRepository transactionRepository,
+                                     Tracer tracer) {
         this.embeddingModel = embeddingModel;
         this.embeddingStore = embeddingStore;
         this.transactionRepository = transactionRepository;
+        this.tracer = tracer;
     }
 
     @Override
@@ -50,30 +57,46 @@ public class PgVectorEmbeddingAdapter implements EmbeddingStorePort {
 
     @Override
     public List<ScoredTransaction> findSimilar(Transaction transaction, int maxResults) {
-        String text = toTextRepresentation(transaction);
-        Embedding queryEmbedding = embeddingModel.embed(text).content();
+        Span span = tracer.spanBuilder("rag.retrieval")
+                .setAttribute("rag.store.type", "pgvector")
+                .startSpan();
 
-        var request = EmbeddingSearchRequest.builder()
-                .queryEmbedding(queryEmbedding)
-                .maxResults(maxResults)
-                .minScore(0.0)
-                .build();
+        try (Scope scope = span.makeCurrent()) {
+            String text = toTextRepresentation(transaction);
+            Embedding queryEmbedding = embeddingModel.embed(text).content();
 
-        List<EmbeddingMatch<TextSegment>> matches = embeddingStore.search(request).matches();
+            var request = EmbeddingSearchRequest.builder()
+                    .queryEmbedding(queryEmbedding)
+                    .maxResults(maxResults)
+                    .minScore(0.0)
+                    .build();
 
-        List<TransactionId> ids = matches.stream()
-                .map(match -> new TransactionId(UUID.fromString(match.embeddingId())))
-                .toList();
+            List<EmbeddingMatch<TextSegment>> matches = embeddingStore.search(request).matches();
 
-        Map<UUID, Transaction> transactionMap = transactionRepository.findAllByIds(ids).stream()
-                .collect(Collectors.toMap(tx -> tx.id().value(), tx -> tx));
+            List<TransactionId> ids = matches.stream()
+                    .map(match -> new TransactionId(UUID.fromString(match.embeddingId())))
+                    .toList();
 
-        return matches.stream()
-                .filter(match -> transactionMap.containsKey(UUID.fromString(match.embeddingId())))
-                .map(match -> new ScoredTransaction(
-                        transactionMap.get(UUID.fromString(match.embeddingId())),
-                        match.score()))
-                .toList();
+            Map<UUID, Transaction> transactionMap = transactionRepository.findAllByIds(ids).stream()
+                    .collect(Collectors.toMap(tx -> tx.id().value(), tx -> tx));
+
+            List<ScoredTransaction> results = matches.stream()
+                    .filter(match -> transactionMap.containsKey(UUID.fromString(match.embeddingId())))
+                    .map(match -> new ScoredTransaction(
+                            transactionMap.get(UUID.fromString(match.embeddingId())),
+                            match.score()))
+                    .toList();
+
+            span.setAttribute("rag.results.count", results.size());
+            span.setStatus(StatusCode.OK);
+            return results;
+        } catch (Exception e) {
+            span.recordException(e);
+            span.setStatus(StatusCode.ERROR, e.getMessage());
+            throw e;
+        } finally {
+            span.end();
+        }
     }
 
     static String toTextRepresentation(Transaction transaction) {

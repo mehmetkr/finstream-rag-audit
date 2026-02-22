@@ -73,6 +73,49 @@ Hexagonal (Ports & Adapters) architecture with an event-driven core. Domain logi
 ```
 ---
 
+## Observability
+
+### Architecture
+
+FinStream-RAG-Audit uses a two-layer tracing strategy exported via OTLP to
+[Langfuse](https://langfuse.com) (or any OTel-compatible backend such as Jaeger).
+
+**Micrometer spans** (application layer) — bridged to OTel by `micrometer-tracing-bridge-otel`:
+```
+fraud.evaluate
+├── fraud.rag        → RAG similarity search
+├── fraud.history    → user history lookup
+└── fraud.llm       → LLM fraud analysis
+```
+
+**OTel spans** (infrastructure layer) — created directly via `io.opentelemetry.api.trace.Tracer`:
+- `rag.embedding` — vector generation via local ONNX model (all-MiniLM-L6-v2)
+- `rag.retrieval` — pgvector similarity search with result count
+- `gen_ai.chat.completion` — LLM generation with token usage and cost (active when a real ChatLanguageModel replaces the heuristic stub)
+
+Each span records business context (audit ID, document type, pipeline stage), token usage, and error tracking as applicable.
+
+### Setup
+
+1. Sign up at [Langfuse Cloud](https://cloud.langfuse.com) (free tier available)
+2. Create a project and copy your API keys
+3. Configure environment variables (or `.env` file):
+   ```bash
+   export LANGFUSE_PUBLIC_KEY=pk-lf-...
+   export LANGFUSE_SECRET_KEY=sk-lf-...
+   export LANGFUSE_AUTH_BASE64=$(echo -n "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" | base64)
+   ```
+4. Optionally set `OTEL_EXPORTER_OTLP_ENDPOINT` (default: `http://localhost:4318/v1/traces`)
+5. Run the application and trigger a transaction — traces appear in the Langfuse dashboard
+
+### Cost Tracking
+
+Token costs are calculated per-request via `ModelCostCalculator` and recorded as
+`gen_ai.usage.cost_usd` span attributes. This applies to remote API-based models;
+the local ONNX embedding model incurs zero cost.
+
+---
+
 ## Current Status — Phase 3 In Progress (Security & Observability Complete)
 
 The system is fully operational with an event-driven core, AI-powered fraud analysis, and production-grade security.

@@ -13,6 +13,10 @@ public final class TracerTestUtils {
     private TracerTestUtils() {
     }
 
+    /**
+     * Stubs a Micrometer Tracer with mocked Span and SpanInScope.
+     * Used by tests that inject io.micrometer.tracing.Tracer.
+     */
     public static void stubTracer(Tracer tracer) {
         Span span = mock(Span.class);
         Tracer.SpanInScope scope = mock(Tracer.SpanInScope.class);

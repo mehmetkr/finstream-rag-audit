@@ -1,14 +1,16 @@
 package com.finstream.infrastructure.adapters.messaging;
 
 import com.finstream.infrastructure.adapters.persistence.TransactionJpaRepository;
-import io.micrometer.tracing.Tracer;
+import com.finstream.testsupport.NoopOpenTelemetryConfig;
 import com.finstream.testsupport.TracerTestUtils;
+import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.BeforeEach;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -25,6 +27,7 @@ import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
 @Testcontainers
+@Import(NoopOpenTelemetryConfig.class)
 class KafkaIntegrationTest {
 
     @Container
@@ -45,6 +48,7 @@ class KafkaIntegrationTest {
 
     @Autowired
     private TransactionJpaRepository transactionRepository;
+
     @MockitoBean
     private Tracer tracer;
 
