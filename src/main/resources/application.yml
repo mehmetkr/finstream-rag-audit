@@ -64,18 +64,7 @@ management:
       probability: 1.0
   otlp:
     tracing:
-      endpoint: http://localhost:4318/v1/traces
-
-langfuse:
-  enabled: true
-  endpoint: https://cloud.langfuse.com/api/public/otel
-  # For EU region use: https://cloud.langfuse.com/api/public/otel
-  # For US region use: https://us.cloud.langfuse.com/api/public/otel
-  # For self-hosted use: http://localhost:3000/api/public/otel
-
-otel:
-  exporter:
-    otlp:
-      endpoint: ${langfuse.endpoint}
-      headers: "Authorization=Basic ${LANGFUSE_AUTH_BASE64}"
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+      headers:
+        Authorization: "Basic ${LANGFUSE_AUTH_BASE64:}"
 

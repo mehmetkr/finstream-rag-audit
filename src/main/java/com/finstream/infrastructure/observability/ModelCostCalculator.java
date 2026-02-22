@@ -32,6 +32,7 @@ public class ModelCostCalculator {
      * @return cost in USD, or 0.0 if model pricing is unknown
      */
     public static double calculateCost(String modelName, int inputTokens, int outputTokens) {
+        if (modelName == null) return 0.0;
         ModelPricing pricing = PRICING.get(modelName);
         if (pricing == null) {
             // Try matching with prefix (handles versioned model names like "gpt-4o-2024-08-06")

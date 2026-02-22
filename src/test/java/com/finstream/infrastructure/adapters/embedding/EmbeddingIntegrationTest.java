@@ -6,13 +6,15 @@ import com.finstream.domain.model.Transaction;
 import com.finstream.domain.model.ids.AccountId;
 import com.finstream.domain.model.ids.TransactionId;
 import com.finstream.domain.ports.outbound.EmbeddingStorePort;
+import com.finstream.testsupport.NoopOpenTelemetryConfig;
 import com.finstream.testsupport.TracerTestUtils;
-import io.opentelemetry.api.OpenTelemetry;
+import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -28,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Testcontainers
+@Import(NoopOpenTelemetryConfig.class)
 class EmbeddingIntegrationTest {
 
     @Container
@@ -48,12 +51,13 @@ class EmbeddingIntegrationTest {
 
     @Autowired
     private com.finstream.domain.ports.outbound.TransactionRepository transactionRepository;
+
     @MockitoBean
-    private OpenTelemetry openTelemetry;
+    private Tracer tracer;
 
     @BeforeEach
     void setUpTracer() {
-        TracerTestUtils.stubOpenTelemetry(openTelemetry);
+        TracerTestUtils.stubTracer(tracer);
     }
 
     @Test

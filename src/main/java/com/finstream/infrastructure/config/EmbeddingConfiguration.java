@@ -17,7 +17,8 @@ public class EmbeddingConfiguration {
 
     @Bean
     EmbeddingModel embeddingModel(OpenTelemetry openTelemetry) {
-        return new TracedEmbeddingModel(new AllMiniLmL6V2EmbeddingModel(), openTelemetry);
+        return new TracedEmbeddingModel(new AllMiniLmL6V2EmbeddingModel(), openTelemetry,
+                "all-MiniLM-L6-v2", "onnx");
     }
 
     @Bean

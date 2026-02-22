@@ -76,8 +76,6 @@ public class TransactionKafkaConsumer {
         switch (event) {
             case TransactionReceived(var transaction, _) -> {
                 repository.save(transaction);
-                embeddingStore.store(transaction.id(), transaction);
-                log.info("[{}] Persisted and embedded transaction: {}", traceId, transaction.id().value());
 
                 AuditTraceContext.setCurrent(new AuditTraceContext(
                         transaction.id().value().toString(),
@@ -86,6 +84,9 @@ public class TransactionKafkaConsumer {
                 ));
 
                 try {
+                    embeddingStore.store(transaction.id(), transaction);
+                    log.info("[{}] Persisted and embedded transaction: {}", traceId, transaction.id().value());
+
                     FraudDecision decision = fraudEvaluationUseCase.evaluate(transaction);
                     var evaluated = new TransactionEvaluated(transaction, decision, Instant.now(clock));
                     eventPublisher.publish(evaluated);

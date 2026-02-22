@@ -20,17 +20,23 @@ public class TracedEmbeddingModel implements EmbeddingModel {
 
     private final EmbeddingModel delegate;
     private final Tracer tracer;
+    private final String modelName;
+    private final String genAiSystem;
 
-    public TracedEmbeddingModel(EmbeddingModel delegate, OpenTelemetry openTelemetry) {
+    public TracedEmbeddingModel(EmbeddingModel delegate, OpenTelemetry openTelemetry,
+                                 String modelName, String genAiSystem) {
         this.delegate = delegate;
         this.tracer = openTelemetry.getTracer("finstream-rag-audit");
+        this.modelName = modelName;
+        this.genAiSystem = genAiSystem;
     }
 
     @Override
     public Response<List<Embedding>> embedAll(List<TextSegment> textSegments) {
         Span span = tracer.spanBuilder("rag.embedding")
                 .setAttribute("rag.embedding.segments_count", textSegments.size())
-                .setAttribute("gen_ai.system", "openai")
+                .setAttribute("gen_ai.system", genAiSystem)
+                .setAttribute("gen_ai.request.model", modelName)
                 .startSpan();
 
         // Apply business context if available
@@ -48,12 +54,13 @@ public class TracedEmbeddingModel implements EmbeddingModel {
             if (response.tokenUsage() != null) {
                 span.setAttribute("gen_ai.usage.input_tokens", response.tokenUsage().inputTokenCount());
 
-                // Cost tracking for embeddings
                 double costUsd = ModelCostCalculator.calculateCost(
-                        "text-embedding-3-small",  // or read from config
+                        modelName,
                         response.tokenUsage().inputTokenCount(),
                         0);
-                span.setAttribute("gen_ai.usage.cost_usd", costUsd);
+                if (costUsd > 0.0) {
+                    span.setAttribute("gen_ai.usage.cost_usd", costUsd);
+                }
             }
 
             span.setStatus(StatusCode.OK);
@@ -65,5 +72,10 @@ public class TracedEmbeddingModel implements EmbeddingModel {
         } finally {
             span.end();
         }
+    }
+
+    @Override
+    public int dimension() {
+        return delegate.dimension();
     }
 }
